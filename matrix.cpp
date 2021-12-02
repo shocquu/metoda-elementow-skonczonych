@@ -43,6 +43,21 @@ void inverseMatrix(double invM[2][2], double M[2][2], double detM) {
 }
 
 /*
+ * Wyœwietla macierz 16x16.
+ *
+ * @param M - macierz do wyœwietlenia
+ */
+void printMatrix(double M[16][16]) {
+	for (size_t i = 0; i < 16; i++)
+	{
+		std::cout << std::setw(8) << M[i][0] << "  " << std::setw(8) << M[i][1] << "  " << std::setw(8) << M[i][2] << "  " << std::setw(8) << M[i][3] << "  ";
+		std::cout << std::setw(8) << M[i][4] << "  " << std::setw(8) << M[i][5] << "  " << std::setw(8) << M[i][6] << "  " << std::setw(8) << M[i][7] << "  ";
+		std::cout << std::setw(8) << M[i][8] << "  " << std::setw(8) << M[i][9] << "  " << std::setw(8) << M[i][10] << "  " << std::setw(8) << M[i][11] << "  ";
+		std::cout << std::setw(8) << M[i][12] << "  " << std::setw(8) << M[i][13] << "  " << std::setw(8) << M[i][14] << "  " << std::setw(8) << M[i][15] << "\n\n";
+	}	
+}
+
+/*
  * Wyœwietla macierz 4x4.
  *
  * @param M - macierz do wyœwietlenia
@@ -74,11 +89,30 @@ void printMatrix(double M[4]) {
 }
 
 /*
+ * Wyœwietla macierz MxN.
+ *
+ * @param matrix - macierz do wyœwietlenia
+ * @param M, N - wymiary macierzy
+ */
+void printMatrix(double **matrix, const int M, const int N) {
+	for (size_t i = 0; i < M; i++)
+	{
+		for (size_t j = 0; j < N; j++)
+		{
+			std::cout << std::setw(8) << matrix[i][j] << "  ";
+		}
+		std::cout << "\n";
+	}
+	std::cout << "\n";
+	 //<< std::setw(8) << M[1] << "\t" << std::setw(8) << M[2] << "\t" << std::setw(8) << M[3] << "\n\n";
+}
+
+/*
  * Wyœwietla 4-kolumnow¹ macierz z nag³ówkami.
  *
  * @param matrix - macierz do wyœwietlenia
  */
-void printMatrix(double** matrix) {
+void printMatrix4x4(double** matrix) {
 	std::cout << "+---+-------------+-------------+-------------+-------------+\n";
 	std::cout << "| # |           1 |           2 |           3 |           4 |\n";
 	std::cout << "+---+-------------+-------------+-------------+-------------+\n";
