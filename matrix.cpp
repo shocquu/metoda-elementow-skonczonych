@@ -1,19 +1,25 @@
 #include "matrix.h"
 
 /**
- * Wype³nia zadan¹ macierz jej przetransponowan¹ wersj¹.
- *
- * @param src - macierz, z której ma siê wzorowaæ
- * @param dst - macierz, do której ma zapisaæ wynik
- * @param N, M - szerokoœæ i wysokoœæ macierzy
+ * Scala macierz równañ z macierz¹ rozwi¹zañ w jedn¹.
+ * 
+ * @param A - macierz uk³adu równañ
+ * @param B - macierz rozwi¹zañ
+ * @param n - liczba uk³adów równañ
  */
-void transpose(double* src, double* dst, const int N = 4, const int M = 4) {
-#pragma omp parallel for
-	for (int n = 0; n < N * M; n++) {
-		int i = n / N;
-		int j = n % N;
-		dst[n] = src[M * j + i];
-	}
+double** merge(double** A, double* B, int n) {
+	double** AB = new double* [n];
+
+	for (int i = 0; i < n; i++)
+		AB[i] = new double[n + 1];
+	for (int i = 0; i < n; i++)	
+		for (int j = 0; j < n; j++)		
+			AB[i][j] = A[i][j];
+	
+	for (int j = 0; j < n; j++)
+		AB[j][n] = B[j];
+	
+	return AB;
 }
 
 /**
@@ -40,6 +46,22 @@ void inverseMatrix(double invM[2][2], double M[2][2], double detM) {
 	invM[0][1] = -M[0][1] * invDetM;
 	invM[1][0] = -M[1][0] * invDetM;
 	invM[1][1] = M[0][0] * invDetM;
+}
+
+/**
+ * Wype³nia zadan¹ macierz jej przetransponowan¹ wersj¹.
+ *
+ * @param src - macierz, z której ma siê wzorowaæ
+ * @param dst - macierz, do której ma zapisaæ wynik
+ * @param N, M - szerokoœæ i wysokoœæ macierzy
+ */
+void transpose(double* src, double* dst, const int N = 4, const int M = 4) {
+#pragma omp parallel for
+	for (int n = 0; n < N * M; n++) {
+		int i = n / N;
+		int j = n % N;
+		dst[n] = src[M * j + i];
+	}
 }
 
 /*
@@ -99,7 +121,7 @@ void printMatrix(double **matrix, const int M, const int N) {
 	{
 		for (size_t j = 0; j < N; j++)
 		{
-			std::cout << std::setw(8) << matrix[i][j] << "  ";
+			std::cout << std::setw(10) << matrix[i][j] << "  ";
 		}
 		std::cout << "\n";
 	}

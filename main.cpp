@@ -6,7 +6,7 @@
 
 using namespace std;
 
-#define LAB_NO 6
+#define LAB_NO 8
 
 //#define SHOW_MATRIX
 //#define SHOW_DETAILS
@@ -20,17 +20,22 @@ using namespace std;
  */
 struct Node {
 	float x = 0, y = 0;
-	short int bc;
+	short int bc = -1;
 };
 
 /**
  * Element uniwersalny.
  * 
- * @attrib id[4] - identyfikatory wêz³ów elementu 
+ * @attrib id[4] - identyfikatory wêz³ów elementu
+ * @attrib H[4][4] - macierz ..
+ * @attrib Hbc[4][4] - macierz ..
+ * @attrib C[4][4] - macierz ciep³a w³aœciwego
+ * @attrib P[16] - wektor obci¹¿eñ / warunków brzegowych
  */
 struct Element {
 	int id[4] = { 0, 0, 0, 0 };
-	double H[4][4] = { 0 }, Hbc[4][4] = { 0 };
+	double H[4][4] = { 0 }, C[4][4] = { 0 }, Hbc[4][4] = { 0 };
+	double P[16] = { 0 };
 
 	int sideDown[2] = { id[0], id[1] };
 	int sideRight[2] = { id[1], id[2] };
@@ -75,13 +80,13 @@ struct Grid {
 	void setNodesCoords() {
 		int i = 0;
 
-		for (size_t x = 0; x < nW; x++)
+		for (int x = 0; x < nW; x++)
 		{
-			for (size_t y = 0; y < nH; y++)
+			for (int y = 0; y < nH; y++)
 			{
 				++i;
-				nodes[i].y = nodes[i - 1].y + height / (nH - 1);
 				nodes[i].x = nodes[i - 1].x;
+				nodes[i].y = nodes[i - 1].y + height / (nH - 1);				
 			}
 
 			nodes[i].x = nodes[i - 1].x + width / (nW - 1);
@@ -90,7 +95,7 @@ struct Grid {
 	}
 
 	void printNodesCoords() {
-		for (size_t i = 0; i < nN; i++)
+		for (int i = 0; i < nN; i++)
 		{
 			std::cout << "Node #" << i + 1 << ":\t[" << this->nodes[i].x << ", " << this->nodes[i].y << "]\n";
 		}
@@ -99,7 +104,7 @@ struct Grid {
 	void setElementsNodes() {
 		int n = 1, nhSum = nH;
 
-		for (size_t i = 0; i < nE; i++)
+		for (int i = 0; i < nE; i++)
 		{
 			elements[i].id[0] = n;
 			elements[i].id[1] = elements[i].id[0] + nH;
@@ -112,11 +117,10 @@ struct Grid {
 				n++;
 			}
 		}
-
 	}
 
 	void printElementsNodes() {
-		for (size_t i = 0; i < nE; i++)
+		for (int i = 0; i < nE; i++)
 		{
 			std::cout << "El #" << i + 1 << "\t{" << elements[i].id[0] << ", " << elements[i].id[1] << ", " << elements[i].id[2] << ", " << elements[i].id[3] << "}\n";
 
@@ -139,7 +143,8 @@ struct Grid {
 struct Element4_2D {
 	double N[4], dKsi[4], dEta[4];
 	double **ksiMatrix, **etaMatrix;
-	double *ksi, *eta;	
+	double *ksi, *eta;
+
 	double dNdX[4][4] = { 0 }, dNdY[4][4] = { 0 };
 	double dNdX_T[1][4] = { 0 }, dNdY_T[1][4] = { 0 };
 	double J[2][2] = { 0 }, invJ[2][2] = { 0 };
@@ -153,69 +158,90 @@ struct Element4_2D {
 		ksiMatrix = new double* [p];
 		etaMatrix = new double* [p];
 
-		for (size_t i = 0; i < p; i++) {
-			ksiMatrix[i] = new double[4];
-			etaMatrix[i] = new double[4];
+		for (int i = 0; i < p; i++) {
+			ksiMatrix[i] = new double[p];
+			etaMatrix[i] = new double[p];
 		}
 
 		fillMatrices();
 	}
 
 	~Element4_2D() {
-		for (size_t i = 0; i < p; i++)
-		{
-			// Exception thrown
-			//delete etaMatrix[i];
-			//delete ksiMatrix[i];
+		for (int i = 0; i < p; i++) {
+			delete etaMatrix[i];
+			delete ksiMatrix[i];
 		}
-		//delete[] etaMatrix, ksiMatrix;
+		delete[] etaMatrix, ksiMatrix;
 	}
 
-	/// <summary>
-	/// Zwraca odleg³oœæ miêdzy dwoma punktami.
-	/// </summary>
-	/// <param name="x1">Wspó³rzêdna X pierwszego punktu</param>
-	/// <param name="y1">Wspó³rzêdna Y pierwszego punktu</param>
-	/// <param name="x2">Wspó³rzêdna X drugiego punktu</param>
-	/// <param name="y2">Wspó³rzêdna Y drugiego punktu</param>
+	/**
+	 * Zwraca odleg³oœæ miêdzy dwoma punktami.
+	 *
+	 * @param x1, y1 - wspó³rzêdna x i y pierwszego punktu
+	 * @param x2, y2 - wspó³rzêdna x i y drugiego punktu
+	 */
 	double distance(double x1, double y1, double x2, double y2)	{
 		return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) * 1.0);
 	}
 
-	/// <summary>
-	/// Agregacja macierzy H.
-	/// </summary>
-	/// <param name="globalMatrix">Macierz do zapisu danych</param>
-	/// <param name="currElIndex">Element siatki, na którym metoda ma operowaæ</param>
-	void aggregate(double**& globalMatrix, Element currEl) {
-		double nodes[4] = { currEl.id[0], currEl.id[1], currEl.id[2], currEl.id[3] };
-		double tempMatrix[4][4][2] = {
+	/**
+	 * Ustawia w przekazanej tablicy sumê macierzy C dla ka¿dego punktu ca³kowania.
+	 *
+	 * @param globalH - tablica do zapisu zagregowanej macierzy H
+	 * @param globalC - tablica do zapisu zagregowanej macierzy C
+	 * @param globalP - tablica do zapisu zagregowanej macierzy P
+	 * @param currEl - element, na którym metoda ma operowaæ
+	 */
+	void aggregate(double**& globalH, double**& globalC, double*& globalP, Element currEl) {
+		int nodes[4] = { currEl.id[0], currEl.id[1], currEl.id[2], currEl.id[3] };
+		int tempMatrix[4][4][2] = {							 // pomocnicza macierz do rozmieszczenia elementów
 			{ { nodes[0], nodes[0] }, { nodes[0], nodes[1] }, { nodes[0], nodes[2] }, { nodes[0], nodes[3] } },
 			{ { nodes[1], nodes[0] }, { nodes[1], nodes[1] }, { nodes[1], nodes[2] }, { nodes[1], nodes[3] } },
 			{ { nodes[2], nodes[0] }, { nodes[2], nodes[1] }, { nodes[2], nodes[2] }, { nodes[2], nodes[3] } },
 			{ { nodes[3], nodes[0] }, { nodes[3], nodes[1] }, { nodes[3], nodes[2] }, { nodes[3], nodes[3] } },
 		};
-		for (size_t j = 0; j < 4; j++)
-		{
-			for (size_t k = 0; k < 4; k++)
-			{
+
+		for (size_t j = 0; j < this->p; j++) {
+			for (size_t k = 0; k < this->p; k++) {
 				int rowIndex = tempMatrix[j][k][0] - 1;
 				int colIndex = tempMatrix[j][k][1] - 1;
-				globalMatrix[rowIndex][colIndex] += currEl.H[j][k];
+				globalH[rowIndex][colIndex] += currEl.H[j][k];
+				globalC[rowIndex][colIndex] += currEl.C[j][k];
 			}
+
+			int rowIndex = nodes[j] - 1;
+			globalP[rowIndex] += currEl.P[j];
 		}
 	}
 
-	/// <summary>
-	/// Ustawia w przekazanej tablicy sumê macierzy Hbc dla ka¿dego punktu ca³kowania.
-	/// </summary>
-	/// <param name="Hbc">Tablica, do której zapisaæ wynik</param>
-	/// <param name="grid">Siatka, na któej metoda ma operowaæ</param>
-	/// <param name="currEl">Index obecnego elementu siatki</param>
-	/// <param name="alpha">wspó³czynnik ...</param>
-	void calcHbc(double Hbc[4][4], Grid grid, int currEl, double alpha = 25) {
+	/**
+	 * Ustawia w przekazanej tablicy sumê macierzy C dla ka¿dego punktu ca³kowania.
+	 * 
+	 * @param c - ciep³o w³aœciwe
+	 * @param ro - gêstoœæ materia³u
+	 */
+	void calcC(double C[4][4], double c = 700, double ro = 7800) {
+		for (size_t i = 0; i < this->p; i++) {
+			double* N = nKsiEta(ksi[i], eta[i]);
+
+			for (size_t j = 0; j < this->p; j++)
+				for (size_t k = 0; k < this->p; k++)	
+					C[j][k] += c * ro * (N[j] * N[k]) * detJ;
+		}		
+	}
+
+	/**
+	 * Ustawia w przekazanej tablicy sumê macierzy Hbc dla ka¿dego punktu ca³kowania.
+	 *
+	 * @param Hbc - tablica, do której zapisaæ sumê macierzy Hbc z ka¿dego punktu ca³kowania
+	 * @param P - tablica, do której zapisaæ wektor P
+	 * @param alpha - ...
+	 * @param initialTemp - pocz¹tkowa temperatura elementu
+	 * @param ambientTemp - temperatura otoczenia
+	 */
+	void calcHbc(double Hbc[4][4], double P[4], double alpha = 25, double initialTemp = 100, double ambientTemp = 1200) {
 		struct Side { double *pc1, *pc2; };
-		double Npc1[4][4], Npc2[4][4];
+		double Npc1[4][4] = { 0 }, Npc2[4][4] = {0};
 		double w[2] = { 1, 1 };
 
 		double ksi = 0.577350; // ???
@@ -246,8 +272,7 @@ struct Element4_2D {
 		#endif
 
 		// Inicjalizacja macierzy funkcji N dla nowych wartoœci ksi i eta
-		for (size_t i = 0; i < this->p; i++)
-		{
+		for (int i = 0; i < this->p; i++) {
 			/*int id = grid.elements[currEl].id[i] - 1;
 			double x = grid.nodes[id].x;
 			double y = grid.nodes[id].y;*/			
@@ -265,21 +290,27 @@ struct Element4_2D {
 		}
 
 		// Wype³nianie macierzy
-		for (size_t i = 0; i < this->p; i++) { // i - punkt ca³kowania
-			double* N1 = this->nKsiEta(sides[i].pc1[0], sides[i].pc1[1]);
-			double* N2 = this->nKsiEta(sides[i].pc2[0], sides[i].pc2[1]);
+		for (int i = 0; i < this->p; i++) { // i - punkt ca³kowania
+			/* nt n1Index = currEl.id[i];
+			int n2Index = currEl.id[(i + 1) % 4];
+			if( nodes[n1Index].bc == 1 && nodes[n2Index].bc == 1 ) { */
 
-			for (size_t j = 0; j < 4; j++)
-				for (size_t k = 0; k < 4; k++) {
+			for (int j = 0; j < 4; j++) {
+				for (int k = 0; k < 4; k++) {
 					Hbc[j][k] = alpha * w[0] * (Npc1[i][j] * Npc1[i][k]);
 					Hbc[j][k] += alpha * w[1] * (Npc2[i][j] * Npc2[i][k]);
-					Hbc[j][k] *= 0.0125; // localDetJ
+					Hbc[j][k] *= 0.0125; // detJ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+					P[i] = w[0] * Npc1[i][j];
+					P[i] += w[1] * Npc2[i][j];
+					P[i] *= alpha * ambientTemp * 0.0125; // detJ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				}
-
+			}
 			#ifdef SHOW_MATRIX
 				std::cout << "Pow_" << i + 1 << "\n";
 				printMatrix(Hbc);
-			#endif	
+			#endif
+
+			// }
 		}
 	}
 	
@@ -292,10 +323,9 @@ struct Element4_2D {
 	 * @param k - wspó³czynnik przewodzenia
 	 */
 	void calcH(double H[4][4], int k = 30) {
-		for (size_t i = 0; i < 4; i++) {
+		for (size_t i = 0; i < this->p; i++) {
 			double rowsX[4] = { dNdX[i][0],	dNdX[i][1], dNdX[i][2],	dNdX[i][3] };
 			double rowsY[4] = { dNdY[i][0], dNdY[i][1], dNdY[i][2], dNdY[i][3] };
-			//transpose(dNdX, *dNdX_T, 1, 4); transpose(dNdY, *dNdY_T, 1, 4);
 
 #ifdef SHOW_DETAILS
 			std::cout << k << " * (" << rowsX[0] << " * " << dNdX_T[0][0] << " + " << rowsY[0] << " * " << dNdY_T[0][0] << ") * " << detJ << " = ";
@@ -303,8 +333,8 @@ struct Element4_2D {
 			std::cout << k * (rowsX[0] * rowsX[0] + rowsY[0] * rowsY[0]) * detJ << "\n";
 #endif
 
-			for (size_t j = 0; j < 4; j++)
-				for (size_t l = 0; l < 4; l++)
+			for (size_t j = 0; j < this->p; j++)
+				for (size_t l = 0; l < this->p; l++)
 					H[j][l] += k * (rowsX[j] * rowsX[l] + rowsY[j] * rowsY[l]) * detJ;
 		}
 #ifdef SHOW_DETAILS
@@ -337,7 +367,7 @@ struct Element4_2D {
 	 * @param el4 - struktura z danymi o elemencie
 	 * @param grid - siatka, na której wykonywana jest procedura liczenia Jakobianu
 	 */
-	void jacobian(int i, Grid grid) {
+	void jacobian(Grid grid, Element currEl) {
 
 #ifdef TEST
 		/// Dane do testów
@@ -350,9 +380,9 @@ struct Element4_2D {
 #else
 		/// W³aœciwe dane
 		// Stwórz macierz Jakobiego ze wszystkich punktów ca³kowania
-		for (size_t j = 0; j < this->p; j++)
+		for (int j = 0; j < this->p; j++)
 		{
-			int id = grid.elements[i].id[j] - 1;
+			int id = currEl.id[j] - 1;
 			double x = grid.nodes[id].x;
 			double y = grid.nodes[id].y;
 
@@ -364,8 +394,8 @@ struct Element4_2D {
 		inverseMatrix(invJ, J, detJ);
 
 		// Wype³nij tablicê pochodnych funkcji N po X i Y - Jakobian?
-		for (size_t j = 0; j < this->p; j++) {
-			for (size_t k = 0; k < this->p; k++) {
+		for (int j = 0; j < this->p; j++) {
+			for (int k = 0; k < this->p; k++) {
 				dNdX[j][k] = invJ[0][0] * this->ksiMatrix[j][k] + invJ[0][1] * this->etaMatrix[j][k];
 				dNdY[j][k] = invJ[1][0] * this->ksiMatrix[j][k] + invJ[1][1] * this->etaMatrix[j][k];
 			}
@@ -381,7 +411,12 @@ struct Element4_2D {
 		return this->detJ;
 	}
 
-	// Funkcje kszta³tu
+	/**
+	 * Zwraca tablicê funkcji kszta³tu.
+	 * 
+	 * @param ksi - wartoœci ksi dla funkcji
+	 * @param eta - wartoœci eta dla funkcji
+	 */
 	double* nKsiEta(double ksi, double eta) {
 		N[0] = 0.25 * (1 - ksi) * (1 - eta);
 		N[1] = 0.25 * (1 + ksi) * (1 - eta);
@@ -391,7 +426,11 @@ struct Element4_2D {
 		return N;
 	}
 
-	// Pochodna funkcji N wzglêdem eta
+	/**
+	 * Zwraca tablicê pochodnych funkcji kszta³tu po eta.
+	 *
+	 * @param ksi - wartoœci ksi dla funkcji
+	 */
 	double* dNdEta(double ksi) {
 		dEta[0] = -0.25 * (1 - ksi);
 		dEta[1] = -0.25 * (1 + ksi);
@@ -401,7 +440,11 @@ struct Element4_2D {
 		return dEta;
 	}
 
-	// Pochodna funkcji N wzglêdem ksi
+	/**
+	 * Zwraca tablicê pochodnych funkcji kszta³tu po ksi.
+	 *
+	 * @param eta - wartoœci eta dla funkcji
+	 */
 	double* dNdKsi(double eta) {
 		dKsi[0] = -0.25 * (1 - eta);
 		dKsi[1] = 0.25 * (1 - eta);
@@ -411,35 +454,57 @@ struct Element4_2D {
 		return dKsi;
 	}
 
-	// Jakobian przekszta³cenia po eta
-	double dXYdEta(int i, double xy) {
-		return dEta[i] * xy;
+	/**
+	 * Zwraca Jakobian przekszta³cenia po eta.
+	 *
+	 * @param pc - punkt ca³kowania
+	 * @param xy - wymno¿enie po "x" lub po "y"
+	 */
+	double dXYdEta(int pc, double xy) {
+		return dEta[pc] * xy;
 	}
 
-	// Jakobian przekszta³cenia po ksi
+	/**
+	 * Zwraca Jakobian przekszta³cenia po ksi.
+	 *
+	 * @param pc - punkt ca³kowania
+	 * @param xy - wymno¿enie po "x" lub po "y"
+	 */
 	double dXYdKsi(int i, double xy) {
 		return dKsi[i] * xy;
 	}
 
-	// Suma jakobianu przekszta³cenia po eta
-	double dXYdEtaSum(double *x) {
+	/**
+	 * Zwraca sumê Jakobianu przekszta³cenia po eta.
+	 *
+	 * @param xy - wymno¿enie po "x" lub po "y"
+	 */
+	double dXYdEtaSum(double *xy) {
 		double sum = 0;
-		for (size_t i = 0; i < 4; i++) sum += dEta[i] * x[i];	
+		for (size_t i = 0; i < 4; i++) sum += dEta[i] * xy[i];	
 		return sum;
 	}
 
-	// Suma jakobianu przekszta³cenia po ksi
-	double dXYdKsiSum(double* x) {
+	/**
+	 * Zwraca sumê Jakobianu przekszta³cenia po ksi.
+	 *
+	 * @param xy - wymno¿enie po "x" lub po "y"
+	 */
+	double dXYdKsiSum(double* xy) {
 		double sum = 0;
-		for (size_t i = 0; i < 4; i++) sum += dKsi[i] * x[i];
+		for (size_t i = 0; i < 4; i++) sum += dKsi[i] * xy[i];
 		return sum;
 	}
 
-	// Wype³nianie macierzy pochodnych funkcji N po eta i ksi
+	/**
+	 * Wype³nia macierz pochodnych funkcji N po eta i ksi.
+	 *
+	 * @param xy - wymno¿enie po "x" lub po "y"
+	 */
 	void fillMatrices() {
-		for (size_t x = 0; x < p; x++)
+		for (int x = 0; x < p; x++)
 		{
-			for (size_t y = 0; y < 4; y++)
+			for (int y = 0; y < 4; y++)
 			{
 				etaMatrix[x][y] = dNdEta(ksi[x])[y];
 				ksiMatrix[x][y] = dNdKsi(eta[x])[y];
@@ -447,60 +512,89 @@ struct Element4_2D {
 		}
 	}	
 };
+ 
+double* globalP;
+double** globalH, **globalC;
+
+void initGlobalMatrices(const int N) {
+	globalP = new double[N];
+	globalH = new double* [N];
+	globalC = new double* [N];
+	for (int i = 0; i < N; i++) {
+		globalP[i] = 0;
+		globalH[i] = new double[N];
+		globalC[i] = new double[N];
+		for (int j = 0; j < N; j++) {
+			globalH[i][j] = 0;
+			globalC[i][j] = 0;
+		}
+	}
+}
+
+void destroyGlobalMatrices(const int N) {
+	for (int i = 0; i < N; i++) {
+		delete globalH[i];
+		delete globalC[i];
+	}
+	delete[] globalH;
+}
 
 int main() {
-	double a = 0.577350;		// 1/sqrt(3)	
+	double a = 1/sqrt(3);
 	double ksiSchema[4] = { -a, a, a, -a };
 	double etaSchema[4] = { -a, -a, a, a };
 	Element4_2D el4(ksiSchema, etaSchema, 2);
-	Grid grid(0.100f, 0.100f, 4, 4);
-
-	#if LAB_NO == 6
-		// Init
+	
+	#if LAB_NO >= 6
+		Gauss gauss;
+		Grid grid(0.100f, 0.100f, 4, 4);
 		const int N = grid.nN;
-		double **notSoGlobalH = new double *[N];
-		for (int i = 0; i < N; ++i)
-			notSoGlobalH[i] = new double[N];
-		for (size_t i = 0; i < N; i++)
-			for (size_t j = 0; j < N; j++)
-				notSoGlobalH[i][j] = 0;
 
-		for (size_t i = 0; i < grid.nE; i++) {
-			el4.jacobian(i, grid);
-			el4.calcH(grid.elements[i].H, 25);
-			el4.aggregate(notSoGlobalH, grid.elements[i]);		
+		initGlobalMatrices(N);
 
-			cout << std::string(73, '_') << " Iteration " << i << std::string(73, '_') << "\n";
-			printMatrix(notSoGlobalH, N, N);
+		for (int i = 0; i < grid.nE; i++) {
+			Element currEl = grid.elements[i];
+
+			el4.jacobian(grid, currEl);
+			el4.calcH(currEl.H, 25);
+			el4.calcC(currEl.C, 700, 7800);
+			el4.calcHbc(currEl.Hbc, currEl.P, 250, 100, 1200);
+			el4.aggregate(globalH, globalC, globalP, currEl);
+
+			//cout << std::string(73, '_') << " Iteration " << i << " " << std::string(73, '_') << "\n";
+			//printMatrix(globalH, N, N);	
+			//printMatrix(globalC, N, N);			
 		}
 
-		// Destroy
+		double** HP = merge(globalH, globalP, N);
+		double* t = gauss.elimination(HP, N);
+
+		//printMatrix(HP, N, N + 1);
+
 		for (size_t i = 0; i < N; i++)
-			delete notSoGlobalH[i];
-		delete[] notSoGlobalH;
+			cout << globalP[i] << "  ";
+		cout << "\n";
+
+		//destroyGlobalMatrices(grid.nN);		
 
 	#elif LAB_NO == 4 || LAB_NO == 5
+		Grid grid(0.025f, 0.025f, 4, 4);
+
 		for (size_t i = 0; i < grid.nE; i++) {
-			double H[4][4] = { 0 }, Hbc[4][4] = { 0 };
-			jac.jacobian(i, el4, grid);
+			el4.jacobian(grid, grid.elements[i]);
 
 			#if LAB_NO == 4
-				jac.calcH(H, jac.getDetJ());
+				el4.calcH(grid.elements[i].H);
 			#elif LAB_NO == 5
 				el4.calcHbc(grid.elements[i].Hbc, grid, 25);
 			#endif
-
 		}
 
 	#elif LAB_NO == 3
-		double a = -0.577350;
-		double ksiSchema[4] = { a, -a, -a, a };
-		double etaSchema[4] = { a, a, -a, -a };
-		Element4_2D el4(ksiSchema, etaSchema, 2);
 		std::cout << std::setw(16) << " " << ">>> Funkcje ksztaltu dN/dKsi <<<\n";
-		el4.printMatrix(el4.ksiMatrix);
+		printMatrix4x4(el4.ksiMatrix);
 		std::cout << std::setw(16) << " " << ">>> Funkcje ksztaltu dN/dEta <<<\n";
-		el4.printMatrix(el4.etaMatrix);
+		printMatrix4x4(el4.etaMatrix);
 	#elif LAB_NO == 2
 		Gauss gauss;
 		int n = 3;

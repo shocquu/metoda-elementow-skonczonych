@@ -1,4 +1,5 @@
 #pragma once
+#include <math.h> 
 typedef double (*vFunctionCall)(double arg);
 typedef double (*vFunctionCall2)(double arg1, double arg2);
 
@@ -18,6 +19,8 @@ private:
 	};;
 
 public:
+	double* elimination(double** AB, int n);
+	double quadrature1d(vFunctionCall f, int n = 2);
 	double quadrature1d(double a, double b, vFunctionCall f, int n = 2);
 	double quadrature2d(vFunctionCall2 f, int n = 2);
 };
