@@ -1,4 +1,5 @@
 #include "gauss.h"
+#include "matrix.h"
 
 /**
  * Algorytm eliminacji Gauss'a do rozwi¹zywania uk³adów liniowych.
@@ -51,6 +52,11 @@ double* Gauss::elimination(double** AB, int n) {
 	}
 
 	return result;
+}
+
+double* Gauss::elimination(double** A, double* B, int n) {
+	double** temp = merge(A, B, n);
+	return elimination(temp, n);
 }
 
 /**

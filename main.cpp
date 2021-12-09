@@ -35,12 +35,7 @@ struct Node {
 struct Element {
 	int id[4] = { 0, 0, 0, 0 };
 	double H[4][4] = { 0 }, C[4][4] = { 0 }, Hbc[4][4] = { 0 };
-	double P[16] = { 0 };
-
-	int sideDown[2] = { id[0], id[1] };
-	int sideRight[2] = { id[1], id[2] };
-	int sideUp[2] = { id[2], id[3] };
-	int sideLeft[2] = { id[3], id[0] };
+	double P[16] = { 0 };	
 };
 
 /**
@@ -220,7 +215,7 @@ struct Element4_2D {
 	 * @param c - ciep³o w³aœciwe
 	 * @param ro - gêstoœæ materia³u
 	 */
-	void calcC(double C[4][4], double c = 700, double ro = 7800) {
+	void calcC(double C[4][4], double c = 700, double ro = 7800) { //!< 
 		for (size_t i = 0; i < this->p; i++) {
 			double* N = nKsiEta(ksi[i], eta[i]);
 
@@ -231,7 +226,7 @@ struct Element4_2D {
 	}
 
 	/**
-	 * Ustawia w przekazanej tablicy sumê macierzy Hbc dla ka¿dego punktu ca³kowania.
+	 * Ustawia w przekazanej tablicy sumê macierzy Hbc oraz wektor P dla ka¿dego punktu ca³kowania.
 	 *
 	 * @param Hbc - tablica, do której zapisaæ sumê macierzy Hbc z ka¿dego punktu ca³kowania
 	 * @param P - tablica, do której zapisaæ wektor P
@@ -239,13 +234,28 @@ struct Element4_2D {
 	 * @param initialTemp - pocz¹tkowa temperatura elementu
 	 * @param ambientTemp - temperatura otoczenia
 	 */
-	void calcHbc(double Hbc[4][4], double P[4], double alpha = 25, double initialTemp = 100, double ambientTemp = 1200) {
+	void calcHbc(double Hbc[4][4], double P[4], Grid grid, double alpha = 25, double initialTemp = 100, double ambientTemp = 1200) {
 		struct Side { double *pc1, *pc2; };
 		double Npc1[4][4] = { 0 }, Npc2[4][4] = {0};
 		double w[2] = { 1, 1 };
+		double ksi, eta;
 
-		double ksi = 0.577350; // ???
-		double eta = 0.577350; 
+		ksi = eta = 1/sqrt(3);
+
+		// TEST
+		int elSides[4][4][2] = {
+			{ grid.elements[0].id[0], grid.elements[0].id[1] },
+			{ grid.elements[0].id[1], grid.elements[0].id[2] },
+			{ grid.elements[0].id[2], grid.elements[0].id[3] },
+			{ grid.elements[0].id[3], grid.elements[0].id[0] }
+		};
+
+		int inde = elSides[3][2][1];
+		int inde2 = elSides[3][1][1];
+		//cout << inde2 << "\n";
+		
+
+		double locDetJ = 0.025 / 2; // node.width & node.height		
 		double points[8][2] = {
 			{ -ksi, -1 }, { ksi, -1 }, //pc1
 			{ 1, -eta }, { 1, eta },   //pc2
@@ -275,7 +285,8 @@ struct Element4_2D {
 		for (int i = 0; i < this->p; i++) {
 			/*int id = grid.elements[currEl].id[i] - 1;
 			double x = grid.nodes[id].x;
-			double y = grid.nodes[id].y;*/			
+			double y = grid.nodes[id].y;*/		
+
 
 			double* Nrow = this->nKsiEta(sides[i].pc1[0], sides[i].pc1[1]);
 			Npc1[i][0] = Nrow[0];
@@ -295,23 +306,47 @@ struct Element4_2D {
 			int n2Index = currEl.id[(i + 1) % 4];
 			if( nodes[n1Index].bc == 1 && nodes[n2Index].bc == 1 ) { */
 
+			//cout << "__________________ Sciana " << i + 1 << " __________________\n";
+
 			for (int j = 0; j < 4; j++) {
 				for (int k = 0; k < 4; k++) {
-					Hbc[j][k] = alpha * w[0] * (Npc1[i][j] * Npc1[i][k]);
-					Hbc[j][k] += alpha * w[1] * (Npc2[i][j] * Npc2[i][k]);
-					Hbc[j][k] *= 0.0125; // detJ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-					P[i] = w[0] * Npc1[i][j];
-					P[i] += w[1] * Npc2[i][j];
-					P[i] *= alpha * ambientTemp * 0.0125; // detJ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+					Hbc[j][k] = w[0] * (Npc1[i][j] * Npc1[i][k]);
+					Hbc[j][k] += w[1] * (Npc2[i][j] * Npc2[i][k]);
+					Hbc[j][k] *= alpha * locDetJ;
 				}
+
+				
+
+				P[i] = w[0] * Npc1[i][j];	//P_pc1
+				P[i] += w[1] * Npc2[i][j];	//P_pc2
+				P[i] *= alpha * locDetJ * ambientTemp;
+				
+								
+				//cout << P[i] << " = (" << w[0] << " * " << Npc1[i][j] << " + " << w[1] << " * " << Npc2[i][j] << ") * " << alpha << " * " << ambientTemp << " * " << locDetJ << "\n";
 			}
+
+			/*double Nrow[4] = { Npc1[3][0], Npc1[3][1], Npc1[3][2], Npc1[3][3] };
+			double Nrow2[4] = { Npc2[3][0], Npc2[3][1], Npc2[3][2], Npc2[3][3] };
+			cout << "pc1\nksi: " << sides[3].pc1[0] << "  eta: "<< sides[3].pc1[1] << "\t";
+			printMatrix(Nrow);
+			cout << "pc2\nksi: " << sides[3].pc2[0] << "  eta: " << sides[3].pc2[1] << "\t";
+			printMatrix(Nrow2);*/
+
+			//cout << "\n";
+			
 			#ifdef SHOW_MATRIX
 				std::cout << "Pow_" << i + 1 << "\n";
 				printMatrix(Hbc);
 			#endif
 
 			// }
+
+			//cout << P[i] << "\t";
 		}
+
+		//cout << P[0] << "\t" << P[1] << "\t" << P[2] << "\t" << P[3] << "\n";
+		//printMatrix(P);
+		//cout << "\n";
 	}
 	
 	/**
@@ -544,10 +579,11 @@ int main() {
 	double ksiSchema[4] = { -a, a, a, -a };
 	double etaSchema[4] = { -a, -a, a, a };
 	Element4_2D el4(ksiSchema, etaSchema, 2);
-	
-	#if LAB_NO >= 6
-		Gauss gauss;
+	Gauss gauss;
+
+	#if LAB_NO >= 6		
 		Grid grid(0.100f, 0.100f, 4, 4);
+		//Grid grid(0.025f, 0.025f, 4, 4);
 		const int N = grid.nN;
 
 		initGlobalMatrices(N);
@@ -558,24 +594,25 @@ int main() {
 			el4.jacobian(grid, currEl);
 			el4.calcH(currEl.H, 25);
 			el4.calcC(currEl.C, 700, 7800);
-			el4.calcHbc(currEl.Hbc, currEl.P, 250, 100, 1200);
+			el4.calcHbc(currEl.Hbc, currEl.P, grid, 300, 100, 1200);
 			el4.aggregate(globalH, globalC, globalP, currEl);
 
-			//cout << std::string(73, '_') << " Iteration " << i << " " << std::string(73, '_') << "\n";
-			//printMatrix(globalH, N, N);	
-			//printMatrix(globalC, N, N);			
+			//printMatrix(currEl.H);
+			//printMatrix(currEl.Hbc);
+
+			cout << std::string(73, '_') << " Iteration " << i << " " << std::string(73, '_') << "\n";
+			//printMatrix(globalH, N, N);
+			printMatrix(globalC, N, N);			
 		}
 
-		double** HP = merge(globalH, globalP, N);
-		double* t = gauss.elimination(HP, N);
+		// H*t + P = 0
+		//double* result = gauss.elimination(globalH, globalP, N); // t-> ???
 
-		//printMatrix(HP, N, N + 1);
+		/*for (size_t i = 0; i < N; i++)
+			cout << globalP[i] << "  ";					
+		cout << "\n";*/
 
-		for (size_t i = 0; i < N; i++)
-			cout << globalP[i] << "  ";
-		cout << "\n";
-
-		//destroyGlobalMatrices(grid.nN);		
+		destroyGlobalMatrices(grid.nN);		
 
 	#elif LAB_NO == 4 || LAB_NO == 5
 		Grid grid(0.025f, 0.025f, 4, 4);
