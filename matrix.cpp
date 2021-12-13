@@ -1,5 +1,48 @@
 #include "matrix.h"
 
+double* multiply(double* A, double b, const int N) {
+	double* temp = new double[N];
+	for (size_t i = 0; i < N; i++)
+		temp[i] = A[i] * b;
+
+	return temp;
+}
+
+double* add(double* A, double** B, const int M, const int N) {
+	double* temp = new double[M];
+	for (size_t i = 0; i < M; i++) {
+		for (size_t j = 0; j < N; j++) {
+			temp[i] = A[i] + B[i][j];
+		}
+	}
+
+	return temp;
+}
+
+double** add(double** A, double** B, const int M, const int N) {
+	double** temp = new double* [M];
+	for (size_t i = 0; i < M; i++) {
+		temp[i] = new double[N];
+		for (size_t j = 0; j < N; j++) {
+			temp[i][j] = A[i][j] + B[i][j];
+		}
+	}
+
+	return temp;
+}
+
+double** divide(double** A, double b, const int M, const int N) {
+	double** temp = new double* [M];
+	for (size_t i = 0; i < M; i++) {
+		temp[i] = new double[N];
+		for (size_t j = 0; j < N; j++) {
+			temp[i][j] = A[i][j] / b;
+		}
+	}
+
+	return temp;
+}
+
 /**
  * Scala macierz równañ z macierz¹ rozwi¹zañ w jedn¹.
  * 
@@ -126,7 +169,19 @@ void printMatrix(double **matrix, const int M, const int N) {
 		std::cout << "\n";
 	}
 	std::cout << "\n";
-	 //<< std::setw(8) << M[1] << "\t" << std::setw(8) << M[2] << "\t" << std::setw(8) << M[3] << "\n\n";
+}
+
+/*
+ * Wyœwietla macierz 1xN.
+ *
+ * @param matrix - macierz do wyœwietlenia
+ * @param N - wymiary macierzy
+ */
+void printMatrix(double* matrix, const int N) {
+	for (size_t i = 0; i < N; i++)	{
+		std::cout << std::setw(10) << matrix[i] << "  ";
+	}
+	std::cout << "\n";
 }
 
 /*
