@@ -19,7 +19,7 @@ using namespace std;
  * @attrib bc - informacja o obecnoœci warunku brzegowego
  */
 struct Node {
-	int id;
+	int id = -1;
 	short int bc = 0;
 	double x = 0, y = 0;
 };
@@ -530,7 +530,7 @@ double* globalP;
 double** globalH, **globalC;
 
 void initGlobalMatrices(const int N) {
-	globalP = new double[N];
+	globalP = new double  [N];
 	globalH = new double* [N];
 	globalC = new double* [N];
 
@@ -554,6 +554,18 @@ void destroyGlobalMatrices(const int N) {
 	delete[] globalH;
 }
 
+void getMinAndMaxElement(double *array, double &minRef, double &maxRef, const int N) {
+	double min = 9999;
+	double max = 0;
+	minRef = min;
+	maxRef = max;
+
+	for (int i = 0; i < N; i++) {
+		if (array[i] < min) minRef = array[i];
+		if (array[i] > max) maxRef = array[i];
+	}
+}
+
 int main() {
 	double a = 1/sqrt(3);
 	double ksiSchema[4] = { -a, a, a, -a };
@@ -561,15 +573,11 @@ int main() {
 	Element4_2D el4(ksiSchema, etaSchema, 2);
 	Gauss gauss;
 
-	#if LAB_NO >= 6
+	#if LAB_NO >= 6 && LAB_NO < 10
 		Grid grid(0.1, 0.1, 4, 4);
 		const int N = grid.nN;
 
 		initGlobalMatrices(N);
-
-		// Chwilowe - DO ZMIANY
-		double t0[16] = { 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 };
-		double* testGlobalP = { new double[16]{ 12000, 12000, 12000, 12000, 12000, 0, 0, 12000, 12000, 0, 0, 12000, 12000, 12000, 12000, 12000 } };
 
 		for (int i = 0; i < grid.nE; i++) {
 			Element currEl = grid.elements[i];
@@ -579,37 +587,50 @@ int main() {
 			el4.calcC(currEl.C, 700, 7800);
 			el4.calcHbc(currEl.Hbc, currEl.P, grid, currEl, i, 300, 1200);
 			el4.aggregate(globalH, globalC, globalP, currEl);
-
-			//printMatrix(currEl.Hbc);
-			//printMatrix(currEl.P);
 		}
 		
+		
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		// Oczekiwane => 12000, 12000, 12000, 12000, 12000, 0, 0, 12000, 12000, 0, 0, 12000, 12000, 12000, 12000, 12000
 		// Otrzymane  => 6000, 12000, 12000, 6000, 6000, 0, 0, 6000, 6000, 0, 0, 12000, 6000, 12000, 6000, 6000
-		//printMatrix(globalP, 16);
+		double* testGlobalP = { new double[16] { 12000, 12000, 12000, 12000, 12000, 0, 0, 12000, 12000, 0, 0, 12000, 12000, 12000, 12000, 12000 } };
+		// printMatrix(globalP, N);
+				
+		double** Ccaret;
+		double** Hcaret;
+		double* Pcaret, *vectorC, *t1;
+		double* t0 = new double[N];
+		for (int i = 0; i < N; i++) t0[i] = 100;
 
-		double** CdT = globalC;
-		double** HplusCdT = globalH;
-		double* PplusCdT = globalP;
+		cout << "Time[s]   MinTemp[s]   MaxTemp[s]\n";
 
-		// Martix [H] = [H]+[C]/dT and
-		// {P} = { P } + { [C] / dT}* {T0}
-		for (size_t dT = 1, i = 0; dT <= 500; dT += 50, i++) {
-			cout << std::string(73, '_') << " Iteration " << i << " " << std::string(73, '_') << "\n";
+		for (size_t dT = 50, i = 0; dT <= 500; dT += 50, i++) {
+			Ccaret = dT > 0 ? divide(globalC, dT, N, N) : divide(globalC, 1, N, N);
+			Hcaret = add(globalH, Ccaret, N, N);
+			Hcaret = add(globalH, Ccaret, N, N);
+			vectorC = multiply(Ccaret, t0, N);
+			Pcaret = add(globalP, vectorC, N, N);
+			t1 = gauss.elimination(Hcaret, Pcaret, N);
+			t0 = t1;
 
-			CdT = divide(CdT, dT, N, N); // + CdT
-			HplusCdT = add(HplusCdT, CdT, N, N); // jak wyzej
-			PplusCdT = add(globalP, CdT, N, N); // jak wyzej
-			PplusCdT = multiply(PplusCdT, t0, N);
+			/*cout << std::string(89, '_') << " Iteration " << i << " " << std::string(89, '_') << "\n";
+			cout << std::string(85, '_') << " Matrix ([H]+[C]/dT) " << std::string(85, '_') << "\n";
+			printMatrix(Hcaret, N, N);
+			cout << std::string(80, '_') << " Vector ({P}+{[C]/dT}*{T0}) " << std::string(81, '_') << "\n";
+			printMatrix(Pcaret, N);
+			cout << "\n";*/
 
-			printMatrix(HplusCdT, N, N);
-			//printMatrix(PplusCdT, N);
+			double minTemp = 9999, maxTemp = 0;
+			//getMinAndMaxElement(t1, minTemp, maxTemp, N);
+			for (size_t k = 0; k < N; k++)	{
+				if (t1[k] < minTemp) minTemp = t1[k];
+				if (t1[k] > maxTemp) maxTemp = t1[k];
+			}
+			cout << setw(7) << dT << "   "  << setw(10) << minTemp << "   " << setw(10) << maxTemp << "\n";
 		}
 
-		// H*t + P = 0
-		//double* result = gauss.elimination(globalH, globalP, N); // t-> ???
-
-		destroyGlobalMatrices(grid.nN);		
+		delete[] t0;
+		destroyGlobalMatrices(N);		
 
 	#elif LAB_NO == 4 || LAB_NO == 5
 		Grid grid(0.025f, 0.025f, 4, 4);

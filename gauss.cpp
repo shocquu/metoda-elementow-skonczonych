@@ -4,22 +4,22 @@
 /**
  * Algorytm eliminacji Gauss'a do rozwi¹zywania uk³adów liniowych.
  * 
- * @param AB - scalona macierz uk³adu i rozwi¹zañ
- * @param n - liczba uk³adów równañ
+ * @param AB - scalona macierz niewiadomych i rozwi¹zañ
+ * @param N - liczba uk³adów równañ
  */
-double* Gauss::elimination(double** AB, int n) {
+double* Gauss::elimination(double** AB, int N) {
 	const double accuracy = 1e-15;
-	double* result = new double[n];
-	int* vector = new int[n + 1];
+	double* result = new double[N];
+	int* vector = new int[N + 1];
 
-	for (int i = 0; i < n + 1; i++)	
+	for (int i = 0; i < N + 1; i++)
 		vector[i] = i;
 	
-	for (int i = 0; i < n - 1; i++) {
-		int largest = i;
+	for (int i = 0; i < N - 1; i++) {
 		bool hasChanged = false;
+		int largest = i;
 
-		for (int j = i + 1; j < n; j++)
+		for (int j = i + 1; j < N; j++)
 			if (fabs(AB[i][vector[largest]]) < fabs(AB[i][vector[j]])) {
 				hasChanged = true;
 				largest = j;
@@ -31,32 +31,40 @@ double* Gauss::elimination(double** AB, int n) {
 			vector[largest] = pom;
 		}
 
-		for (int j = i + 1; j < n; j++) {
+		for (int j = i + 1; j < N; j++) {
 			if (fabs(AB[i][vector[i]]) < accuracy)
 				return NULL;
 			
-			double dzielnik = AB[j][vector[i]] / AB[i][vector[i]];
+			double divisor = AB[j][vector[i]] / AB[i][vector[i]];
 
-			for (int k = i + 1; k < n + 1; k++)			
-				AB[j][vector[k]] -= (AB[i][vector[k]] * dzielnik);			
+			for (int k = i + 1; k < N + 1; k++)
+				AB[j][vector[k]] -= (AB[i][vector[k]] * divisor);
 		}
 	}
 
-	for (int i = n - 1; i >= 0; i--) {
+	for (int i = N - 1; i >= 0; i--) {
 		if (fabs(AB[i][vector[i]]) < accuracy)
 			return NULL;
-		for (int j = n - 1; j > i; j--)		
-			AB[i][n] -= AB[i][vector[j]] * result[vector[j]];
-		
-		result[vector[i]] = AB[i][n] / AB[i][vector[i]];
+
+		for (int j = N - 1; j > i; j--)
+			AB[i][N] -= AB[i][vector[j]] * result[vector[j]];
+
+		result[vector[i]] = AB[i][N] / AB[i][vector[i]];
 	}
 
 	return result;
 }
 
-double* Gauss::elimination(double** A, double* B, int n) {
-	double** temp = merge(A, B, n);
-	return elimination(temp, n);
+/**
+ * Algorytm eliminacji Gauss'a do rozwi¹zywania uk³adów liniowych.
+ *
+ * @param A - macierz niewiadomych
+ * @param B - wektor rozwi¹zañ
+ * @param N - liczba uk³adów równañ
+ */
+double* Gauss::elimination(double** A, double* B, int N) {
+	double** temp = merge(A, B, N);
+	return elimination(temp, N);
 }
 
 /**

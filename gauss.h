@@ -19,8 +19,8 @@ private:
 	};;
 
 public:
-	double* elimination(double** AB, int n);
-	double* elimination(double** A, double* B, int n);
+	double* elimination(double** AB, int N);
+	double* elimination(double** A, double* B, int N);
 	double quadrature1d(vFunctionCall f, int n = 2);
 	double quadrature1d(double a, double b, vFunctionCall f, int n = 2);
 	double quadrature2d(vFunctionCall2 f, int n = 2);

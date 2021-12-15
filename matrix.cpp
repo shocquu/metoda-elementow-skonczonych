@@ -1,6 +1,20 @@
 #include "matrix.h"
 
-double* multiply(double* A, double *B, const int N = WIDTH) {
+double* multiply(double** A, double* B, const int N) {
+	double *temp = new double[N];
+
+	for (int i = 0; i < N; i++) {
+		temp[i] = 0;
+
+		for (int j = 0; j < N; j++) {
+			temp[i] += A[i][j] * B[j];
+		}
+	}
+
+	return temp;
+}
+
+double* multiply(double* A, double *B, const int N) {
 	double* temp = new double[N];
 	for (size_t i = 0; i < N; i++)
 		temp[i] = A[i] * B[i];
@@ -8,7 +22,7 @@ double* multiply(double* A, double *B, const int N = WIDTH) {
 	return temp;
 }
 
-double* multiply(double* A, double b, const int N = WIDTH) {
+double* multiply(double* A, double b, const int N) {
 	double* temp = new double[N];
 	for (size_t i = 0; i < N; i++)
 		temp[i] = A[i] * b;
@@ -16,18 +30,18 @@ double* multiply(double* A, double b, const int N = WIDTH) {
 	return temp;
 }
 
-double* add(double* A, double** B, const int M = WIDTH, const int N = HEIGHT) {
+double* add(double* A, double* B, const int M, const int N) {
 	double* temp = new double[M];
 	for (size_t i = 0; i < M; i++) {
 		for (size_t j = 0; j < N; j++) {
-			temp[i] = A[i] + B[i][j];
+			temp[i] = A[i] + B[i];
 		}
 	}
 
 	return temp;
 }
 
-double** add(double** A, double** B, const int M = WIDTH, const int N = HEIGHT) {
+double** add(double** A, double** B, const int M, const int N) {
 	double** temp = new double* [M];
 	for (size_t i = 0; i < M; i++) {
 		temp[i] = new double[N];
@@ -39,7 +53,7 @@ double** add(double** A, double** B, const int M = WIDTH, const int N = HEIGHT) 
 	return temp;
 }
 
-double** divide(double** A, double b, const int M = WIDTH * WIDTH, const int N = HEIGHT * HEIGHT) {
+double** divide(double** A, double b, const int M, const int N) {
 	double** temp = new double* [M];
 	for (size_t i = 0; i < M; i++) {
 		temp[i] = new double[N];
@@ -106,7 +120,7 @@ void inverseMatrix(double invM[WIDTH][HEIGHT], double M[WIDTH][HEIGHT], double d
  * @param dst - macierz, do której ma zapisaæ wynik
  * @param N, M - szerokoœæ i wysokoœæ macierzy
  */
-void transpose(double* src, double* dst, const int M = WIDTH * WIDTH, const int N = HEIGHT * HEIGHT) {
+void transpose(double* src, double* dst, const int M, const int N) {
 #pragma omp parallel for
 	for (int n = 0; n < N * M; n++) {
 		int i = n / N;
@@ -120,7 +134,7 @@ void transpose(double* src, double* dst, const int M = WIDTH * WIDTH, const int 
  *
  * @param M - macierz do wyœwietlenia
  */
-void printMatrix(double M[WIDTH * WIDTH * WIDTH * WIDTH][HEIGHT * HEIGHT * HEIGHT * HEIGHT]) {
+void printMatrix(double M[WIDTHx4][HEIGHTx4]) {
 	for (size_t i = 0; i < 16; i++)
 	{
 		std::cout << std::setw(8) << M[i][0] << "  " << std::setw(8) << M[i][1] << "  " << std::setw(8) << M[i][2] << "  " << std::setw(8) << M[i][3] << "  ";
