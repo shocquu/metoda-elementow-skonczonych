@@ -1,6 +1,14 @@
 #include "matrix.h"
 
-double* multiply(double* A, double b, const int N) {
+double* multiply(double* A, double *B, const int N = WIDTH) {
+	double* temp = new double[N];
+	for (size_t i = 0; i < N; i++)
+		temp[i] = A[i] * B[i];
+
+	return temp;
+}
+
+double* multiply(double* A, double b, const int N = WIDTH) {
 	double* temp = new double[N];
 	for (size_t i = 0; i < N; i++)
 		temp[i] = A[i] * b;
@@ -8,7 +16,7 @@ double* multiply(double* A, double b, const int N) {
 	return temp;
 }
 
-double* add(double* A, double** B, const int M, const int N) {
+double* add(double* A, double** B, const int M = WIDTH, const int N = HEIGHT) {
 	double* temp = new double[M];
 	for (size_t i = 0; i < M; i++) {
 		for (size_t j = 0; j < N; j++) {
@@ -19,7 +27,7 @@ double* add(double* A, double** B, const int M, const int N) {
 	return temp;
 }
 
-double** add(double** A, double** B, const int M, const int N) {
+double** add(double** A, double** B, const int M = WIDTH, const int N = HEIGHT) {
 	double** temp = new double* [M];
 	for (size_t i = 0; i < M; i++) {
 		temp[i] = new double[N];
@@ -31,7 +39,7 @@ double** add(double** A, double** B, const int M, const int N) {
 	return temp;
 }
 
-double** divide(double** A, double b, const int M, const int N) {
+double** divide(double** A, double b, const int M = WIDTH * WIDTH, const int N = HEIGHT * HEIGHT) {
 	double** temp = new double* [M];
 	for (size_t i = 0; i < M; i++) {
 		temp[i] = new double[N];
@@ -71,7 +79,7 @@ double** merge(double** A, double* B, int n) {
  * @param matrix - macierz, dla której wyznaczyæ wyznacznik
  * @return (double)wyznacznik macierzy
  */
-double detOfMatrix(double matrix[2][2]) {
+double detOfMatrix(double matrix[WIDTH][HEIGHT]) {
 	return (matrix[0][0] * matrix[1][1]) - (matrix[0][1] * matrix[1][0]);
 }
 
@@ -83,7 +91,7 @@ double detOfMatrix(double matrix[2][2]) {
  * @param detM - wyznacznik macierzy
  *
  */
-void inverseMatrix(double invM[2][2], double M[2][2], double detM) {
+void inverseMatrix(double invM[WIDTH][HEIGHT], double M[WIDTH][HEIGHT], double detM) {
 	double invDetM = 1 / detM;
 	invM[0][0] = M[1][1] * invDetM;
 	invM[0][1] = -M[0][1] * invDetM;
@@ -98,7 +106,7 @@ void inverseMatrix(double invM[2][2], double M[2][2], double detM) {
  * @param dst - macierz, do której ma zapisaæ wynik
  * @param N, M - szerokoœæ i wysokoœæ macierzy
  */
-void transpose(double* src, double* dst, const int N = 4, const int M = 4) {
+void transpose(double* src, double* dst, const int M = WIDTH * WIDTH, const int N = HEIGHT * HEIGHT) {
 #pragma omp parallel for
 	for (int n = 0; n < N * M; n++) {
 		int i = n / N;
@@ -112,7 +120,7 @@ void transpose(double* src, double* dst, const int N = 4, const int M = 4) {
  *
  * @param M - macierz do wyœwietlenia
  */
-void printMatrix(double M[16][16]) {
+void printMatrix(double M[WIDTH * WIDTH * WIDTH * WIDTH][HEIGHT * HEIGHT * HEIGHT * HEIGHT]) {
 	for (size_t i = 0; i < 16; i++)
 	{
 		std::cout << std::setw(8) << M[i][0] << "  " << std::setw(8) << M[i][1] << "  " << std::setw(8) << M[i][2] << "  " << std::setw(8) << M[i][3] << "  ";
@@ -127,7 +135,7 @@ void printMatrix(double M[16][16]) {
  *
  * @param M - macierz do wyœwietlenia
  */
-void printMatrix(double M[4][4]) {
+void printMatrix(double M[WIDTH * WIDTH][HEIGHT * HEIGHT]) {
 	std::cout << std::setw(8) << M[0][0] << "\t" << std::setw(8) << M[0][1] << "\t" << std::setw(8) << M[0][2] << "\t" << std::setw(8) << M[0][3] << "\n";
 	std::cout << std::setw(8) << M[1][0] << "\t" << std::setw(8) << M[1][1] << "\t" << std::setw(8) << M[1][2] << "\t" << std::setw(8) << M[1][3] << "\n";
 	std::cout << std::setw(8) << M[2][0] << "\t" << std::setw(8) << M[2][1] << "\t" << std::setw(8) << M[2][2] << "\t" << std::setw(8) << M[2][3] << "\n";
@@ -139,7 +147,7 @@ void printMatrix(double M[4][4]) {
  *
  * @param M - macierz do wyœwietlenia
  */
-void printMatrix(double M[2][2]) {
+void printMatrix(double M[WIDTH][HEIGHT]) {
 	std::cout << std::setw(8) << M[0][0] << "\t" << std::setw(8) << M[0][1] << "\n";
 	std::cout << std::setw(8) << M[1][0] << "\t" << std::setw(8) << M[1][1] << "\n\n";
 }
@@ -149,7 +157,7 @@ void printMatrix(double M[2][2]) {
  *
  * @param M - macierz do wyœwietlenia
  */
-void printMatrix(double M[4]) {
+void printMatrix(double M[2 * WIDTH]) {
 	std::cout << std::setw(8) << M[0] << "\t" << std::setw(8) << M[1] << "\t" << std::setw(8) << M[2] << "\t" << std::setw(8) << M[3] << "\n\n";
 }
 
