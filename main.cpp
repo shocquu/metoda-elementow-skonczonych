@@ -3,11 +3,10 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <regex>
 #include "functions.h"
 #include "matrix.h"
 #include "gauss.h"
-
-#include <regex>
 
 using namespace std;
 
@@ -20,8 +19,8 @@ using namespace std;
 /**
  * Wêze³ bêd¹cy czêœci¹ elementu.
  * 
- * @attrib x, y - wspó³rzêdne wêz³ów
- * @attrib bc - informacja o obecnoœci warunku brzegowego
+ * @param x, y - wspó³rzêdne wêz³ów
+ * @param bc - informacja o obecnoœci warunku brzegowego
  */
 struct Node {
 	int id = -1;
@@ -32,11 +31,11 @@ struct Node {
 /**
  * Element uniwersalny.
  * 
- * @attrib id[4] - identyfikatory wêz³ów elementu
- * @attrib H[4][4] - macierz ..
- * @attrib Hbc[4][4] - macierz ..
- * @attrib C[4][4] - macierz ciep³a w³aœciwego
- * @attrib P[16] - wektor obci¹¿eñ / warunków brzegowych
+ * @param id[4] - identyfikatory wêz³ów elementu
+ * @param H[4][4] - macierz ..
+ * @param Hbc[4][4] - macierz ..
+ * @param C[4][4] - macierz ciep³a w³aœciwego
+ * @param P[16] - wektor obci¹¿eñ / warunków brzegowych
  */
 struct Element {
 	int id[4] = { 0, 0, 0, 0 };
@@ -47,10 +46,10 @@ struct Element {
 /**
  * Siatka elementów.
  *
- * @attrib width, height - wymiary siatki
- * @attrib nW, nH - liczba wêz³ów odpowiednio na osi X i osi Y
- * @attrib nN - ³¹czna liczba wêz³ów w siatce
- * @attrib nE - liczba elementów, z których sk³ada siê siatka
+ * @param width, height - wymiary siatki
+ * @param nW, nH - liczba wêz³ów odpowiednio na osi X i osi Y
+ * @param nN - ³¹czna liczba wêz³ów w siatce
+ * @param nE - liczba elementów, z których sk³ada siê siatka
  */
 struct Grid {
 	double width, height;
@@ -58,6 +57,16 @@ struct Grid {
 	Node* nodes;
 	Element* elements;
 
+	Grid() {
+		this->width = 0;
+		this->height = 0;
+		this->nW = 0;
+		this->nH = 0;
+		this->nN = 0;
+		this->nE = 0;
+		this->nodes = NULL;
+		this->elements = NULL;
+	}
 	Grid(double height, double width, int nH, int nW) {
 		this->height = height;
 		this->width = width;
@@ -149,11 +158,11 @@ struct Grid {
 /**
  * Dwuwymiarowy, czteropunktowy element.
  * 
- * @attrib N[4] - tablica funkcji kszta³tu
- * @attrib dKsi[4], dEta[4] - tablica pochodnych funkcji N kolejno po Ksi i Eta
- * @attrib ksiMatrix, etaMatrix - tablice pochodnych funkcji dla wszystkich punktów ca³kowania
- * @attrib ksi, eta - schematy ca³kowania
- * @attrib p - liczba punktów ca³kowania
+ * @param N[4] - tablica funkcji kszta³tu
+ * @param dKsi[4], dEta[4] - tablica pochodnych funkcji N kolejno po Ksi i Eta
+ * @param ksiMatrix, etaMatrix - tablice pochodnych funkcji dla wszystkich punktów ca³kowania
+ * @param ksi, eta - schematy ca³kowania
+ * @param p - liczba punktów ca³kowania
  */
 struct Element4_2D {
 	double dNdX[4][4] = { 0 }, dNdY[4][4] = { 0 };
@@ -534,6 +543,11 @@ struct Element4_2D {
 double* globalP;
 double** globalH, **globalC;
 
+/**
+ * Funkcja inicjuj¹ca globalne macierze do przechowywania zagregowanych tablic/wektorów.
+ *
+ * @param N - wielkoœæ macierzy
+ */
 void initGlobalMatrices(const int N) {
 	globalP = new double  [N];
 	globalH = new double* [N];
@@ -551,6 +565,11 @@ void initGlobalMatrices(const int N) {
 	}
 }
 
+/**
+ * Funkcja zwalniaj¹ca z pamiêci zinicjowane funkcj¹ initGlobalMatrices() macierze.
+ *
+ * @param N - wielkoœæ macierzy
+ */
 void destroyGlobalMatrices(const int N) {
 	for (int i = 0; i < N; i++) {
 		delete globalH[i];
@@ -559,39 +578,37 @@ void destroyGlobalMatrices(const int N) {
 	delete[] globalH;
 }
 
-void getMinAndMaxElement(double *array, double &minRef, double &maxRef, const int N) {
-	double min = 9999;
-	double max = 0;
-	minRef = min;
-	maxRef = max;
-
-	for (int i = 0; i < N; i++) {
-		if (array[i] < min) minRef = array[i];
-		if (array[i] > max) maxRef = array[i];
-	}
-}
-
-void parseCommaSeparatedString(string input) {
-	std::istringstream ss(input);
-	std::string token;
-
-	while (std::getline(ss, token, ',')) {
-		std::cout << token << '\n';
-	}
-}
-
-void parseTextFile(string fileName) {
-	double simulationTime = -1, simulationStepTime = -1, conductivity = -1, alpha = -1, initialTemp = -1, ambientTemp = -1, density = -1, specificHeat = -1;
-	double nodesNo = -1, elementsNo = -1;
+/**
+ * Analizuje plik pod wskazan¹ œcie¿k¹ i zapisuje dane do przekazanych referencji.
+ * Plik musi byæ w formacie takim jak na zajêciach, tj.
+ * zmienne i ich wartoœci oddzielone spacj¹, informacje o elementach, wêz³ach i warunkach brzegu
+ * poprzedzone asteriksem (*) z wartoœciami w nowej linii oddzielonymi spacj¹.
+ * 
+ * Przyk³ad:
+ *  SimulationTime 500
+ *  SimulationStepTime 50
+ *  *Node
+ *     1,  0.100000001, 0.00499999989      
+ *  *Element, type=DC2D4
+ *	 1,  1,  2,  6,  5
+ *	*BC
+ *	1, 2, 3, 4, 5, 8, 9, 12, 13, 14, 15, 16
+ * 
+ * @param path - œcie¿ka do pliku tekstowego
+ * @param grid - siatka do zapisu danych
+ * @param simulationTime, simulationStepTime, ... - referencje do zapisu wartoœci
+ */
+void parseTextFile(string path, Grid& grid, double& simulationTime, double& simulationStepTime, double& conductivity, double& alpha, double& density, double& specificHeat, double& initialTemp, double& ambientTemp) {
+	int nodesNo = 0, elementsNo = 0;
 	Element *elements = NULL;
 	Node* nodes = NULL;
 
 	string line, temp;
 	ifstream file;
-	file.open(fileName);
+
+	file.open(path);
 
 	if (!file.is_open()) return;
-
 	while (getline(file, line)) {
 		if (regex_match(line, std::regex("SimulationTime \\d+"))) {
 			temp = regex_replace(line, std::regex("SimulationTime "), "$1");			
@@ -627,11 +644,11 @@ void parseTextFile(string fileName) {
 		}
 		else if (regex_match(line, std::regex("Nodes number \\d+"))) {
 			temp = regex_replace(line, std::regex("Nodes number "), "$1");
-			nodesNo = stod(temp);
+			nodesNo = stoi(temp);
 		}
 		else if (regex_match(line, std::regex("Elements number \\d+"))) {
 			temp = regex_replace(line, std::regex("Elements number "), "$1");
-			elementsNo = stod(temp);
+			elementsNo = stoi(temp);
 		}
 
 		// Odczyt wêz³ów
@@ -680,10 +697,10 @@ void parseTextFile(string fileName) {
 					}
 
 					int index = stoi(results[0]) - 1;
-					double id1 = stoi(results[1]);
-					double id2 = stoi(results[2]);
-					double id3 = stoi(results[3]);
-					double id4 = stoi(results[4]);
+					int id1 = stoi(results[1]);
+					int id2 = stoi(results[2]);
+					int id3 = stoi(results[3]);
+					int id4 = stoi(results[4]);
 
 					elements[index].id[0] = id1;
 					elements[index].id[1] = id2;
@@ -698,58 +715,27 @@ void parseTextFile(string fileName) {
 		// Odczyt warunków brzegowych
 		if (regex_match(line, std::regex("\\*BC"))) {
 			while (getline(file, line)) {
-				getline(file, line, ',');
+				if (nodes == NULL)
+					return;
 
-				while (getline(file, line, ',')) {
-					int nodeId = stoi(line);
-
-					if (nodes == NULL)
-						return;
-
+				string token;
+				istringstream ss(line);
+				while (getline(ss, token, ',')) {
+					int nodeId = stoi(token) - 1;
 					nodes[nodeId].bc = 1;
 				}
 			}
-		}
-		
-		/*auto delimiterPos = line.find("SimulationTime");
-		auto name = line.substr(0, delimiterPos);
-		auto value = line.substr(delimiterPos + 1);		
-		std::cout << name << " " << value << '\n';*/
-
-		/*if (line.substr(0, 5) == "*Node") {
-			std::istringstream v(line.substr(2));
-			int id;
-			double x, y;
-			v >> id; v >> x; v >> y;
-
-			cout << id << "\t" << x << "\t" << y << endl;
-		}
-		//check for texture co-ordinate
-		else if (line.substr(0, 2) == "vt") {
-
-			std::istringstream v(line.substr(3));;
-
-		}*/
-
-		/*smatch m;
-		bool found = regex_search(line, m, std::regex("\\*Node"));
-		if (found == true) {
-			int id;
-			double x, y;
-
-			id = stoi(m[0]);
-			x = stod(m[1]);
-			y = stod(m[2]);
-
-			cout << "Object ID = " << id << endl;
-			cout << "Xmin = " << x << endl;
-			cout << "Ymin = " << y << endl;
-		}*/
+		}		
 	}
 
-	//cout << simulationTime << endl;
-
 	file.close();
+
+	grid.nN = nodesNo;
+	grid.nE = elementsNo;
+	grid.nodes = nodes;
+	grid.elements = elements;
+
+	// delete nodes, elements;
 }
 
 int main() {
@@ -759,8 +745,24 @@ int main() {
 	Element4_2D el4(ksiSchema, etaSchema, 2);
 	Gauss gauss;
 
-	#if LAB_NO == 10
-	parseTextFile("samples/MES_31_31_v2.txt");
+	#if LAB_NO >= 10
+		Grid grid;
+		double simTime, simStepTime, conductivity, alpha, density, specificHeat, initialTemp, ambientTemp;
+		parseTextFile("samples/MES_31_31_v2.txt", grid, simTime, simStepTime, conductivity, alpha, density, specificHeat, initialTemp, ambientTemp);
+
+		cout << "SimulationTime " << simTime << "\n";
+		cout << "SimulationStepTime  " << simStepTime << "\n";
+		cout << "Conductivity " << conductivity << "\n";
+		cout << "Alfa " << alpha << "\n";
+		cout << "Tot " << ambientTemp << "\n";
+		cout << "InitialTemp " << initialTemp << "\n";
+		cout << "Density " << density << "\n";
+		cout << "SpecificHeat " << specificHeat << "\n";
+		cout << "Nodes number " << grid.nN << "\n";
+		cout << "Elements number " << grid.nE << "\n";
+		grid.printNodesCoords();
+		grid.printElementsNodes();
+		grid.printBCNodes();
 
 	#elif LAB_NO >= 6 && LAB_NO < 10
 		Grid grid(0.1, 0.1, 4, 4);
