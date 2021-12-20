@@ -1,12 +1,17 @@
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include "functions.h"
 #include "matrix.h"
 #include "gauss.h"
 
+#include <regex>
+
 using namespace std;
 
-#define LAB_NO 9
+#define LAB_NO 10
 
 //#define SHOW_MATRIX
 //#define SHOW_DETAILS
@@ -566,6 +571,187 @@ void getMinAndMaxElement(double *array, double &minRef, double &maxRef, const in
 	}
 }
 
+void parseCommaSeparatedString(string input) {
+	std::istringstream ss(input);
+	std::string token;
+
+	while (std::getline(ss, token, ',')) {
+		std::cout << token << '\n';
+	}
+}
+
+void parseTextFile(string fileName) {
+	double simulationTime = -1, simulationStepTime = -1, conductivity = -1, alpha = -1, initialTemp = -1, ambientTemp = -1, density = -1, specificHeat = -1;
+	double nodesNo = -1, elementsNo = -1;
+	Element *elements = NULL;
+	Node* nodes = NULL;
+
+	string line, temp;
+	ifstream file;
+	file.open(fileName);
+
+	if (!file.is_open()) return;
+
+	while (getline(file, line)) {
+		if (regex_match(line, std::regex("SimulationTime \\d+"))) {
+			temp = regex_replace(line, std::regex("SimulationTime "), "$1");			
+			simulationTime = stod(temp);
+		}
+		else if (regex_match(line, std::regex("SimulationStepTime \\d+"))) {
+			temp = regex_replace(line, std::regex("SimulationStepTime "), "$1");
+			simulationStepTime = stod(temp);
+		}
+		else if (regex_match(line, std::regex("Conductivity \\d+"))) {
+			temp = regex_replace(line, std::regex("Conductivity "), "$1");
+			conductivity = stod(temp);
+		}
+		else if (regex_match(line, std::regex("Alfa \\d+"))) {
+			temp = regex_replace(line, std::regex("Alfa "), "$1");
+			alpha = stod(temp);
+		}
+		else if (regex_match(line, std::regex("Tot \\d+"))) {
+			temp = regex_replace(line, std::regex("Tot "), "$1");
+			ambientTemp = stod(temp);
+		}
+		else if (regex_match(line, std::regex("InitialTemp \\d+"))) {
+			temp = regex_replace(line, std::regex("InitialTemp "), "$1");
+			initialTemp = stod(temp);
+		}
+		else if (regex_match(line, std::regex("Density \\d+"))) {
+			temp = regex_replace(line, std::regex("Density "), "$1");
+			density = stod(temp);
+		}
+		else if (regex_match(line, std::regex("SpecificHeat \\d+"))) {
+			temp = regex_replace(line, std::regex("SpecificHeat "), "$1");
+			specificHeat = stod(temp);
+		}
+		else if (regex_match(line, std::regex("Nodes number \\d+"))) {
+			temp = regex_replace(line, std::regex("Nodes number "), "$1");
+			nodesNo = stod(temp);
+		}
+		else if (regex_match(line, std::regex("Elements number \\d+"))) {
+			temp = regex_replace(line, std::regex("Elements number "), "$1");
+			elementsNo = stod(temp);
+		}
+
+		// Odczyt wêz³ów
+		if (regex_match(line, std::regex("\\*Node"))) {			
+			nodes = new Node[nodesNo];
+
+			while (getline(file, line)) {
+				if (regex_match(line, std::regex("\\s+\\d+,\\s+[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+),\\s+[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)"))) {
+					istringstream ss(line);
+					string token;
+					string results[3];
+					int i = 0;
+
+					while (getline(ss, token, ',')) {
+						results[i] = token;
+						i = i > 3 ? 0 : i + 1;
+					}
+
+					int id = stoi(results[0]) - 1;
+					double x = stod(results[1]);
+					double y = stod(results[2]);
+
+					nodes[id].id = id;
+					nodes[id].x = x;
+					nodes[id].y = y;
+				}					
+				else
+					break;
+			}
+		}
+
+		// Odczyt elementów
+		if (regex_match(line, regex("\\*Element, type=DC2D4"))) { // uwzglêdniæ type !!!
+			elements = new Element[elementsNo];
+
+			while (getline(file, line)) {
+				if (regex_match(line, regex("\\s*\\d+,\\s+\\d+,\\s+\\d+,\\s+\\d+,\\s+\\d+"))) {
+					istringstream ss(line);
+					string token;
+					string results[5];
+					int i = 0;
+
+					while (getline(ss, token, ',')) {
+						results[i] = token;
+						i = i > 5 ? 0 : i + 1;						
+					}
+
+					int index = stoi(results[0]) - 1;
+					double id1 = stoi(results[1]);
+					double id2 = stoi(results[2]);
+					double id3 = stoi(results[3]);
+					double id4 = stoi(results[4]);
+
+					elements[index].id[0] = id1;
+					elements[index].id[1] = id2;
+					elements[index].id[2] = id3;
+					elements[index].id[3] = id4;
+				}					
+				else
+					break;
+			}
+		}
+
+		// Odczyt warunków brzegowych
+		if (regex_match(line, std::regex("\\*BC"))) {
+			while (getline(file, line)) {
+				getline(file, line, ',');
+
+				while (getline(file, line, ',')) {
+					int nodeId = stoi(line);
+
+					if (nodes == NULL)
+						return;
+
+					nodes[nodeId].bc = 1;
+				}
+			}
+		}
+		
+		/*auto delimiterPos = line.find("SimulationTime");
+		auto name = line.substr(0, delimiterPos);
+		auto value = line.substr(delimiterPos + 1);		
+		std::cout << name << " " << value << '\n';*/
+
+		/*if (line.substr(0, 5) == "*Node") {
+			std::istringstream v(line.substr(2));
+			int id;
+			double x, y;
+			v >> id; v >> x; v >> y;
+
+			cout << id << "\t" << x << "\t" << y << endl;
+		}
+		//check for texture co-ordinate
+		else if (line.substr(0, 2) == "vt") {
+
+			std::istringstream v(line.substr(3));;
+
+		}*/
+
+		/*smatch m;
+		bool found = regex_search(line, m, std::regex("\\*Node"));
+		if (found == true) {
+			int id;
+			double x, y;
+
+			id = stoi(m[0]);
+			x = stod(m[1]);
+			y = stod(m[2]);
+
+			cout << "Object ID = " << id << endl;
+			cout << "Xmin = " << x << endl;
+			cout << "Ymin = " << y << endl;
+		}*/
+	}
+
+	//cout << simulationTime << endl;
+
+	file.close();
+}
+
 int main() {
 	double a = 1/sqrt(3);
 	double ksiSchema[4] = { -a, a, a, -a };
@@ -573,7 +759,10 @@ int main() {
 	Element4_2D el4(ksiSchema, etaSchema, 2);
 	Gauss gauss;
 
-	#if LAB_NO >= 6 && LAB_NO < 10
+	#if LAB_NO == 10
+	parseTextFile("samples/MES_31_31_v2.txt");
+
+	#elif LAB_NO >= 6 && LAB_NO < 10
 		Grid grid(0.1, 0.1, 4, 4);
 		const int N = grid.nN;
 
@@ -587,8 +776,7 @@ int main() {
 			el4.calcC(currEl.C, 700, 7800);
 			el4.calcHbc(currEl.Hbc, currEl.P, grid, currEl, i, 300, 1200);
 			el4.aggregate(globalH, globalC, globalP, currEl);
-		}
-		
+		}		
 		
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		// Oczekiwane => 12000, 12000, 12000, 12000, 12000, 0, 0, 12000, 12000, 0, 0, 12000, 12000, 12000, 12000, 12000
