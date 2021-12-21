@@ -139,15 +139,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="functions.cpp" />
-    <ClCompile Include="gauss.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="matrix.cpp" />
+    <ClInclude Include="src\grid\element.h" />
+    <ClInclude Include="src\grid\element4_2d.h" />
+    <ClInclude Include="src\grid\grid.h" />
+    <ClInclude Include="src\grid\node.h" />
+    <ClInclude Include="src\utils\functions.h" />
+    <ClInclude Include="src\utils\gauss.h" />
+    <ClInclude Include="src\utils\matrix.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="functions.h" />
-    <ClInclude Include="gauss.h" />
-    <ClInclude Include="matrix.h" />
+    <ClCompile Include="src\grid\element4_2d.cpp" />
+    <ClCompile Include="src\grid\grid.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\utils\functions.cpp" />
+    <ClCompile Include="src\utils\gauss.cpp" />
+    <ClCompile Include="src\utils\matrix.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

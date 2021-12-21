@@ -1,5 +1,7 @@
 #include "matrix.h"
 
+using namespace std;
+
 double* multiply(double** A, double* B, const int N) {
 	double *temp = new double[N];
 
@@ -72,17 +74,17 @@ double** divide(double** A, double b, const int M, const int N) {
  * @param B - macierz rozwi¹zañ
  * @param n - liczba uk³adów równañ
  */
-double** merge(double** A, double* B, int n) {
-	double** AB = new double* [n];
+double** merge(double** A, double* B, int N) {
+	double** AB = new double* [N];
 
-	for (int i = 0; i < n; i++)
-		AB[i] = new double[n + 1];
-	for (int i = 0; i < n; i++)	
-		for (int j = 0; j < n; j++)		
+	for (int i = 0; i < N; i++)
+		AB[i] = new double[N + 1];
+	for (int i = 0; i < N; i++)	
+		for (int j = 0; j < N; j++)		
 			AB[i][j] = A[i][j];
 	
-	for (int j = 0; j < n; j++)
-		AB[j][n] = B[j];
+	for (int j = 0; j < N; j++)
+		AB[j][N] = B[j];
 	
 	return AB;
 }

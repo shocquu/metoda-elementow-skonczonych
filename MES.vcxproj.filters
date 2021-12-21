@@ -13,30 +13,60 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\utils">
+      <UniqueIdentifier>{41761e5a-b079-42f9-a6fb-a83230ab1c18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\grid">
+      <UniqueIdentifier>{f76195de-c12a-4833-b87a-77735209bbda}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\grid">
+      <UniqueIdentifier>{e7d8ab2b-e161-4fbb-9c78-6afcb9c990d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\utils">
+      <UniqueIdentifier>{8359a937-e18e-4859-a4d6-73fef1f6601c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="matrix.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="gauss.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="functions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClInclude Include="src\grid\element.h">
+      <Filter>Header Files\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="src\grid\element4_2d.h">
+      <Filter>Header Files\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="src\grid\grid.h">
+      <Filter>Header Files\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="src\grid\node.h">
+      <Filter>Header Files\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils\functions.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils\gauss.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils\matrix.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="matrix.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="gauss.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="functions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\grid\element4_2d.cpp">
+      <Filter>Source Files\grid</Filter>
+    </ClCompile>
+    <ClCompile Include="src\grid\grid.cpp">
+      <Filter>Source Files\grid</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utils\functions.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utils\gauss.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utils\matrix.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

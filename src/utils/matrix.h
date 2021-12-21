@@ -1,7 +1,6 @@
 #pragma once
 #include <iostream>
 #include <iomanip>
-using namespace std;
 
 #define WIDTH 2
 #define WIDTHx4 16
