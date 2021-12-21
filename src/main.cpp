@@ -9,45 +9,15 @@
 using namespace std;
 
 #define LAB_NO 9
- 
-double* globalP;
-double** globalH, **globalC;
 
-/**
- * Funkcja inicjuj¹ca globalne macierze do przechowywania zagregowanych tablic/wektorów.
- *
- * @param N - wielkoœæ macierzy
- */
-void initGlobalMatrices(const int N) {
-	globalP = new double  [N];
-	globalH = new double* [N];
-	globalC = new double* [N];
-
-	for (int i = 0; i < N; i++) {
-		globalH[i] = new double[N];
-		globalC[i] = new double[N];
-		globalP[i] = 0;
-
-		for (int j = 0; j < N; j++) {
-			globalH[i][j] = 0;
-			globalC[i][j] = 0;
-		}
+pair<double, double> minMax(double* array, const int N) {
+	double min = 9999, max = 0;
+	for (size_t i = 0; i < N; i++) {
+		if (array[i] < min) min = array[i];
+		if (array[i] > max) max = array[i];
 	}
-}
 
-/**
- * Funkcja zwalniaj¹ca z pamiêci zinicjowane funkcj¹ initGlobalMatrices() macierze.
- *
- * @param N - wielkoœæ macierzy
- */
-void destroyGlobalMatrices(const int N) {
-	for (int i = 0; i < N; i++) {
-		delete globalH[i];
-		delete globalC[i];
-	}
-	delete[] globalH;
-	delete[] globalC;
-	//delete globalP;
+	return make_pair(min, max);
 }
 
 int main() {
@@ -88,32 +58,21 @@ int main() {
 			el4.aggregate(globalH, globalC, globalP, currEl);
 		}
 
-		double** Ccaret, ** Hcaret;
-		double* Pcaret, *vectorC, * t1;
+		double** Ccaret = divide(globalC, 50, N, N);
+		double** Hcaret = add(globalH, Ccaret, N, N);
+		double* Pcaret, * vectorC, * t1;
 		double* t0 = new double[N];
 		for (int i = 0; i < N; i++) t0[i] = initialTemp;
 
 		cout << " Time[s]   MinTemp[s]   MaxTemp[s]\n";
 
-		for (double dT = 0, i = 0; dT <= simTime; dT += simStepTime, i++) {
-			Ccaret = dT > 0 ? divide(globalC, dT, N, N) : divide(globalC, 1, N, N);
-			Hcaret = add(globalH, Ccaret, N, N);
-			Hcaret = add(globalH, Ccaret, N, N);
+		for (size_t t = 50, i = 0; t <= 500; t += 50, i++) {
 			vectorC = multiply(Ccaret, t0, N);
 			Pcaret = add(globalP, vectorC, N, N);
 			t1 = gauss.elimination(Hcaret, Pcaret, N);
 			t0 = t1;
-
-			double minTemp = 9999, maxTemp = 0;
-
-			for (int k = 0; k < N; k++) {
-				if (t1[k] < minTemp) minTemp = t1[k];
-				if (t1[k] > maxTemp) maxTemp = t1[k];
-			}
-
-			//minTemp = t1[N - 2];
-			//maxTemp = t1[N - 1];
-			cout << setw(8) << dT << "   " << setw(10) << minTemp << "   " << setw(10) << maxTemp << "\n";
+			pair<double, double> temps = minMax(t1, N);
+			cout << setw(8) << t << "   " << setw(10) << minTemp << "   " << setw(10) << maxTemp << "\n";
 		}
 
 		delete[] t0;
@@ -122,32 +81,33 @@ int main() {
 	#elif LAB_NO >= 6 && LAB_NO < 10
 		Grid grid(0.1, 0.1, 4, 4);
 		const int N = grid.nN;
-		initGlobalMatrices(N);
 
 		for (int i = 0; i < grid.nE; i++) {
 			Element currEl = grid.elements[i];
 
-			el4.jacobian(grid, currEl);
-			el4.calcH(currEl.H, 25);
-			el4.calcC(currEl.C, 700, 7800, currEl, i, grid);
-			el4.calcHbc(currEl.Hbc, currEl.P, grid, currEl, i, 300, 1200);
-			el4.aggregate(globalH, globalC, globalP, currEl);
+			grid.jacobian(el4, currEl);
+			grid.calcH(el4, currEl, 25);
+			grid.calcC(el4, currEl, 700, 7800);
+			grid.calcHbc(el4, currEl, i, 300, 1200);
+			grid.aggregate(currEl);
+
+			//printMatrix(currEl.H);
+			//printMatrix(currEl.C);
 		}
 				
-		double** Ccaret;
-		double** Hcaret;
+		double** Ccaret = divide(grid.globalC, 50, N, N);
+		double** Hcaret = add(grid.globalH, Ccaret, N, N);
 		double* Pcaret, *vectorC, *t1;
 		double* t0 = new double[N];
 		for (int i = 0; i < N; i++) t0[i] = 100;
+		
+		//printMatrix(grid.globalH, N, N);
 
 		cout << " Time[s]   MinTemp[s]   MaxTemp[s]\n";
 
 		for (size_t t = 50, i = 0; t <= 500; t += 50, i++) {
-			Ccaret = t > 0 ? divide(globalC, 50, N, N) : divide(globalC, 1, N, N);
-			Hcaret = add(globalH, Ccaret, N, N);
-			//Hcaret = add(globalH, Ccaret, N, N);
 			vectorC = multiply(Ccaret, t0, N);
-			Pcaret = add(globalP, vectorC, N, N);
+			Pcaret = add(grid.globalP, vectorC, N, N);
 			t1 = gauss.elimination(Hcaret, Pcaret, N);
 			t0 = t1;
 
@@ -156,50 +116,14 @@ int main() {
 			printMatrix(Hcaret, N, N);
 			cout << string(80, '_') << " Vector ({P}+{[C]/dT}*{T0}) " << string(81, '_') << "\n";
 			printMatrix(Pcaret, N);
-			cout << "\n";*/
+			cout << "\n"; */
 
-			double minTemp = 9999, maxTemp = 0;
-			for (size_t k = 0; k < N; k++)	{
-				if (t1[k] < minTemp) minTemp = t1[k];
-				if (t1[k] > maxTemp) maxTemp = t1[k];
-			}
-
+			pair<double, double> temps = minMax(t1, N);
 			//cout.precision(2); // fixed << minTemp
-			cout << setw(8) << t << "   " << setw(10) << minTemp << "   " << setw(10) << maxTemp << "\n";
+			cout << setw(8) << t << "   " << setw(10) << temps.first << "   " << setw(10) << temps.second << "\n";
 		}
 
 		delete[] t0;
-		destroyGlobalMatrices(N);		
-
-	#elif LAB_NO == 4 || LAB_NO == 5
-		Grid grid(0.025f, 0.025f, 4, 4);
-
-		for (size_t i = 0; i < grid.nE; i++) {
-			el4.jacobian(grid, grid.elements[i]);
-
-			#if LAB_NO == 4
-				el4.calcH(grid.elements[i].H);
-			#elif LAB_NO == 5
-				el4.calcHbc(grid.elements[i].Hbc, grid, 25);
-			#endif
-		}
-
-	#elif LAB_NO == 3
-		cout << setw(16) << " " << ">>> Funkcje ksztaltu dN/dKsi <<<\n";
-		printMatrix4x4(el4.ksiMatrix);
-		cout << setw(16) << " " << ">>> Funkcje ksztaltu dN/dEta <<<\n";
-		printMatrix4x4(el4.etaMatrix);
-	#elif LAB_NO == 2
-		Gauss gauss;
-		int n = 3;
-		double interval1d = gauss.quadrature1d(-1, 1, (vFunctionCall)f, n);		// 15.3333 OK | https://www.wolframalpha.com/input/?i2d=true&i=Integrate%5B5Power%5Bx%2C2%5D%2B3x%2B6%2C%7Bx%2C-1%2C1%7D%5D
-		double interval2d = gauss.quadrature2d((vFunctionCall2)f, n);		    // 26.2222 OK | https://www.wolframalpha.com/input/?i2d=true&i=Integrate%5BIntegrate%5B5Power%5Bx%2C2%5DPower%5By%2C2%5D+%2B+3xy+%2B+6%2C%7Bx%2C-1%2C1%7D%5D%2C%7By%2C-1%2C1%7D%5D
-		cout << "Kwadratura 1D dla " << n << "p: " << interval1d << endl;
-		cout << "Kwadratura 2D dla " << n << "p: " << interval2d << endl;
-	#elif LAB_NO == 1
-		Grid grid(0.2f, 0.1f, 5, 4);
-		grid.printNodesCoords();
-		grid.printElementsNodes();
 	#endif
 	system("pause");
 	return 0;

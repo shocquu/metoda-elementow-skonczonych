@@ -1,5 +1,5 @@
 #pragma once
-#include "grid.h"
+
 #include "element.h"
 
 struct Element4_2D {
@@ -11,13 +11,8 @@ struct Element4_2D {
 	int p = 4;
 
 	Element4_2D(double* ksi, double* eta, int n);
-	~Element4_2D();
-	void aggregate(double**& globalH, double**& globalC, double*& globalP, Element currEl);
-	void calcHbc(double Hbc[4][4], double P[4], Grid grid, Element currEl, int elIndex, double alpha, double ambientTemp);
-	void calcH(double H[4][4], double k);
-	void calcC(double C[4][4], double c, double ro, Element currEl, int currElId, Grid grid);
-	void calcJ(double J[2][2], int pc, double x, double y);
-	void jacobian(Grid grid, Element &currEl);
+	~Element4_2D();	
+	
 	double distance(double x1, double y1, double x2, double y2);
 	double* nKsiEta(double ksi, double eta);
 	double* dNdEta(double ksi);
