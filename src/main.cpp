@@ -94,7 +94,6 @@ int main() {
 		for (int i = 0; i < N; i++) t0[i] = initialTemp;
 
 		cout << " Time[s]   MinTemp[s]   MaxTemp[s]\n";
-
 		for (double dT = 0, i = 0; dT <= simTime; dT += simStepTime, i++) {
 			Ccaret = dT > 0 ? divide(globalC, dT, N, N) : divide(globalC, 1, N, N);
 			Hcaret = add(globalH, Ccaret, N, N);
