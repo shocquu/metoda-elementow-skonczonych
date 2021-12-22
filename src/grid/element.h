@@ -15,4 +15,5 @@ struct Element {
 	double J[2][2] = { 0 }, invJ[2][2] = { 0 };
 	double P[4] = { 0 };
 	double detJ = 0;
+	double temperature = 0;
 };
