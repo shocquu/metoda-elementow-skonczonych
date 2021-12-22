@@ -1,16 +1,19 @@
 #pragma once
 
+#include <math.h>
+
+#include "../utils/gauss.h"
 #include "element.h"
 
 struct Element4_2D {
 	double **nMatrix, **ksiMatrix, **etaMatrix;
 	double dNdX[4][4] = { 0 }, dNdY[4][4] = { 0 };
 	double N[4], dKsi[4], dEta[4];
-	double *ksi, *eta;
+	double *ksi, *eta, *w;
 	double detJ = 0;
 	int p = 4;
 
-	Element4_2D(double* ksi, double* eta, int n);
+	Element4_2D(int integralPoints = 2);
 	~Element4_2D();	
 	
 	double distance(double x1, double y1, double x2, double y2);

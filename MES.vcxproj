@@ -145,6 +145,7 @@
     <ClInclude Include="src\grid\node.h" />
     <ClInclude Include="src\utils\functions.h" />
     <ClInclude Include="src\utils\gauss.h" />
+    <ClInclude Include="src\utils\helpers.h" />
     <ClInclude Include="src\utils\matrix.h" />
   </ItemGroup>
   <ItemGroup>
@@ -153,6 +154,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\utils\functions.cpp" />
     <ClCompile Include="src\utils\gauss.cpp" />
+    <ClCompile Include="src\utils\helpers.cpp" />
     <ClCompile Include="src\utils\matrix.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

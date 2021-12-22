@@ -1,14 +1,23 @@
-#include <math.h>
-
 #include "element4_2d.h"
 
-Element4_2D::Element4_2D(double* ksi, double* eta, int n = 2) {
-	this->p = n * n;
-	this->ksi = ksi;
-	this->eta = eta;
-	nMatrix = new double* [p];
-	ksiMatrix = new double* [p];
-	etaMatrix = new double* [p];
+Element4_2D::Element4_2D(int integralPoints) {
+	this->p = integralPoints * integralPoints;
+	this->ksi = new double[p];
+	this->eta = new double[p];
+	Gauss g;
+
+	int it = 0;
+	for (int i = 0; i < integralPoints; i++) {
+		for (int j = i; j < integralPoints + i; j++) {
+			ksi[it] = g.x[integralPoints - 1][j % integralPoints]; // wartoœci ksi dla n-tego punktu ca³kowania
+			eta[it] = g.x[integralPoints - 1][i % integralPoints]; // wartoœci eta dla n-tego punktu ca³kowania
+			it++;
+		}		
+	}
+
+	this->nMatrix = new double* [p];
+	this->ksiMatrix = new double* [p];
+	this->etaMatrix = new double* [p];
 
 	for (int i = 0; i < p; i++) {
 		nMatrix[i] = new double[p];
@@ -20,11 +29,11 @@ Element4_2D::Element4_2D(double* ksi, double* eta, int n = 2) {
 }
 
 Element4_2D::~Element4_2D() {
-	/*for (int i = 0; i < p; i++) {
+	for (int i = 0; i < p; i++) {
 		delete etaMatrix[i];
 		delete ksiMatrix[i];
 	}
-	delete[] etaMatrix, ksiMatrix;*/
+	delete[] etaMatrix, ksiMatrix;
 }
 
 /**
