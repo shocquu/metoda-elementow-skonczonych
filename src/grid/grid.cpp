@@ -29,11 +29,13 @@ Grid::Grid(double height, double width, int nH, int nW) {
 
 Grid::~Grid() {	
 	for (int i = 0; i < nN; i++) {
-		delete[] aggrC[i];
-		delete[] aggrH[i];
+		//delete aggrC[i];
+		//delete aggrH[i];
+		//delete[] aggrC[i];
+		//delete[] aggrH[i];
 	}	
-	delete[] aggrC;
-	delete[] aggrH;	
+	//delete[] aggrC;
+	//delete[] aggrH;	
 
 	// ERROR
 	//delete aggrP;
@@ -105,6 +107,9 @@ void Grid::launch(Element4_2D &el4, double simTime, double simStepTime, double c
 	double* t0 = new double[N];
 	for (int i = 0; i < N; i++) t0[i] = initialTemp;
 
+	for (size_t it = 0; it < N; it++)
+		elements[it].temperature = t0[it];
+
 	if(!showDetails) cout << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
 	for (double t = simStepTime, i = 0; t <= simTime; t += simStepTime, i++) {
 		vectorC = multiply(Ccaret, t0, N);
@@ -124,6 +129,10 @@ void Grid::launch(Element4_2D &el4, double simTime, double simStepTime, double c
 		pair<double, double> temps = minMax(t1, N);
 		//cout.precision(2); // fixed << minTemp
 		if (!showDetails) cout << setw(8) << t << "   " << setw(10) << temps.first << "   " << setw(10) << temps.second << "\n";
+
+		// @TODO - naprawiæ !!!
+		for (size_t it = 0; it < N; it++)		
+			elements[it].temperature = t1[it];
 	}
 
 	delete[] t0;
