@@ -1,4 +1,5 @@
 #pragma once
+
 /**
  * Element uniwersalny.
  *
@@ -11,8 +12,8 @@
 struct Element {
 	int index = 0;
 	int id[4] = { 0, 0, 0, 0 };
-	double H[4][4] = { 0 }, C[4][4] = { 0 }, Hbc[4][4] = { 0 };
 	double J[2][2] = { 0 }, invJ[2][2] = { 0 };
+	double H[4][4] = { 0 }, Hbc[4][4] = { 0 }, C[4][4] = { 0 };
 	double P[4] = { 0 };
 	double detJ = 0;
 	double temperature = 0;

@@ -1,6 +1,16 @@
 #include "grid.h"
 
+namespace plt = matplotlibcpp;
 using namespace std;
+
+double Grid::alpha = 300;
+double Grid::simTime = 20;
+double Grid::simStepTime = 1;
+double Grid::conductivity = 25;
+double Grid::density = 7800;
+double Grid::specificHeat = 700;
+double Grid::initialTemp = 100;
+double Grid::ambientTemp = 1200;
 
 Grid::Grid() {
 	width = height = 0;
@@ -10,8 +20,17 @@ Grid::Grid() {
 	aggrH = aggrC = nullptr;
 	aggrP = nullptr;
 }
+Grid::Grid(Element4_2D el4, string path) {
+	width = height = 0;
+	nW = nH = nN = nE = p = 0;
+	nodes = nullptr;
+	elements = nullptr;
+	aggrH = aggrC = nullptr;
+	aggrP = nullptr;
+	readFromFile(path);
+	initMatrices();
+}
 Grid::Grid(double height, double width, int nH, int nW) {
-	this->nE = 0;
 	this->height = height;
 	this->width = width;
 	this->nH = nH;
@@ -26,7 +45,6 @@ Grid::Grid(double height, double width, int nH, int nW) {
 	setElementsNodes();
 	setNodesBC();
 }
-
 Grid::~Grid() {	
 	for (int i = 0; i < nN; i++) {
 		//delete aggrC[i];
@@ -56,9 +74,9 @@ Grid::~Grid() {
  * @param path - œcie¿ka do pliku tekstowego zawieraj¹cego dane o siatcê
  * @param showDetails - opcja umo¿liwiaj¹ca wyœwietlanie zawartoœci macierzy
  */
-void Grid::launch(Element4_2D &el4, std::string path, bool showDetails) {	
-	readFromFile(path, simTime, simStepTime, conductivity, alpha, density, specificHeat, initialTemp, ambientTemp);
-	initMatrices();
+void Grid::launch(Element4_2D &el4, std::string path, bool showDetails) {
+	readFromFile(path);
+	if(nodes) initMatrices();
 	launch(el4, simTime, simStepTime, conductivity, alpha, density, specificHeat, initialTemp, ambientTemp, showDetails);
 }
 
@@ -76,21 +94,21 @@ void Grid::launch(Element4_2D &el4, std::string path, bool showDetails) {
  * @param showDetails - opcja umo¿liwiaj¹ca wyœwietlanie zawartoœci macierzy
  */
 void Grid::launch(Element4_2D &el4, double simTime, double simStepTime, double conductivity, double alpha, double density, double specificHeat, double initialTemp, double ambientTemp, bool showDetails) {
-	printBanner();
-	cout << " SimulationTime " << simTime << "\n";
-	cout << " SimulationStepTime " << simStepTime << "\n";
-	cout << " Conductivity " << conductivity << "\n";
-	cout << " Alpha " << alpha << "\n";
-	cout << " InitialTemp " << initialTemp << "\n";
-	cout << " AmbientTemp " << ambientTemp << "\n";
-	cout << " Density " << density << "\n";
-	cout << " SpecificHeat " << specificHeat << "\n";
-	cout << " Nodes number " << nN << "\n";
-	cout << " Elements number " << nE << "\n\n";	
-	//printNodesCoords();
-	//printElementsNodes();
-	//printBCNodes();
+	Grid::simTime = simTime;
+	Grid::simStepTime = simStepTime;
+	Grid::conductivity = conductivity;
+	Grid::alpha = alpha;
+	Grid::density = density;
+	Grid::specificHeat = specificHeat;
+	Grid::initialTemp = initialTemp;
+	Grid::ambientTemp = ambientTemp;
 
+	printBanner();
+	printSimulationData();		
+	calcTemperature(el4, true);
+}
+
+void Grid::calcTemperature(Element4_2D el4, bool showMinMax, bool saveToFile) {
 	for (int i = 0; i < nE; i++) {
 		Element currEl = elements[i];
 		jacobian(el4, currEl);
@@ -105,37 +123,96 @@ void Grid::launch(Element4_2D &el4, double simTime, double simStepTime, double c
 	double** Hcaret = add(aggrH, Ccaret, N, N);
 	double* Pcaret, * vectorC, * t1;
 	double* t0 = new double[N];
+	ofstream file;
+
+	if (showMinMax) cout << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
+	if (saveToFile) {
+		file.open("tempSaveTest.txt");
+		file << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
+	}
+	
 	for (int i = 0; i < N; i++) t0[i] = initialTemp;
-
-	for (size_t it = 0; it < N; it++)
-		elements[it].temperature = t0[it];
-
-	if(!showDetails) cout << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
-	for (double t = simStepTime, i = 0; t <= simTime; t += simStepTime, i++) {
+	for (double t = simStepTime; t <= simTime; t += simStepTime) {
 		vectorC = multiply(Ccaret, t0, N);
 		Pcaret = add(aggrP, vectorC, N, N);
 		t1 = Gauss().elimination(Hcaret, Pcaret, N);
+		double minTemp, maxTemp;
+		tie(minTemp, maxTemp) = minMax(t1, N);
 		t0 = t1;
 
-		if (showDetails) {
-			cout << string(89, '_') << " Iteration " << i << " " << string(89, '_') << "\n";
-			cout << string(85, '_') << " Matrix ([H]+[C]/dT) " << string(85, '_') << "\n";
-			printMatrix(Hcaret, N, N);
-			cout << string(80, '_') << " Vector ({P}+{[C]/dT}*{T0}) " << string(81, '_') << "\n";
-			printMatrix(Pcaret, N);
-			cout << "\n";
+		for (int i = 0; i < N; i++) {
+			if (nodes[i].bc == 0)
+				nodes[i].tempAtTime.push_back(t0[i]);
+			else
+				nodes[i].tempAtTime.push_back(t1[i]);
 		}
 
-		pair<double, double> temps = minMax(t1, N);
-		//cout.precision(2); // fixed << minTemp
-		if (!showDetails) cout << setw(8) << t << "   " << setw(10) << temps.first << "   " << setw(10) << temps.second << "\n";
+		if (showMinMax) {
+			pair<double, double> temps = minMax(t1, N);
+			cout << setw(8) << t << "   " << setw(10) << temps.first << "   " << setw(10) << temps.second << "\n";
+		}
 
-		// @TODO - naprawiæ !!!
-		for (size_t it = 0; it < N; it++)		
-			elements[it].temperature = t1[it];
+		if (saveToFile) {
+			pair<double, double> temps = minMax(t1, N);
+			file << setw(8) << t << "   " << setw(10) << temps.first << "   " << setw(10) << temps.second << "\n";
+		}
 	}
 
+	if (saveToFile) file.close();
 	delete[] t0;
+}
+
+void Grid::plotHeatMap(Element4_2D el4) {
+	if (!nodes) {
+		cout << "File not found.\n";
+		return;
+	}
+
+	if (nodes[0].tempAtTime.empty()) {
+		cout << " Calculating ...";
+		calcTemperature(el4);
+		cout << " DONE\n";
+	}
+
+	int nW = 31, nH = 31; // @EDIT
+	double xStep = width / ((double)nW - 1);
+	double yStep = height / ((double)nH - 1);
+
+	vector<float> temp(nN);	
+	vector<double> xTicks, yTicks;
+	const vector<string> labels = {};
+	const vector<double> extent = { 0, width, 0, height};
+	const map<string, string> options = { {"interpolation", "bilinear"}, {"cmap", "plasma"}, {"origin", "lower"}, {"aspect", "auto"} };
+	const float* tptr = &(temp[0]);
+	const int colors = 1;
+	int passedTime = 0;
+	
+	for (size_t i = 0; i < nW; i++) xTicks.push_back(xStep * i);
+	for (size_t i = 0; i < nH; i++) yTicks.push_back(yStep * i);
+	for (int t = 0; t < nodes[0].tempAtTime.size(); t++) {
+		int it = 0;
+
+		for (size_t i = 0; i < nW; i++) {
+			for (size_t j = 0; j < nH; j++) {
+				temp.at((size_t)nW * j + i) = nodes[it].tempAtTime[t];
+				it++;
+			}
+		}
+
+		passedTime += simStepTime;
+		PyObject* mat;
+		plt::clf();
+		plt::title("Rozklad temperatury po " + to_string(passedTime) + (passedTime > 1 ? " sekundach" : " sekundzie"));
+		plt::imshow(tptr, nW, nH, colors, options, &mat, extent);
+		//plt::xticks(xTicks, labels);
+		//plt::grid(true);
+		plt::colorbar(mat);
+		plt::pause(0.1);
+		Py_DECREF(mat);
+	}
+	
+	plt::show();
+	plt::close();
 }
 
 /**
@@ -158,7 +235,7 @@ void Grid::launch(Element4_2D &el4, double simTime, double simStepTime, double c
  * @param grid - siatka do zapisu danych
  * @param simulationTime, simulationStepTime, ... - referencje do zapisu wartoœci
  */
-void Grid::readFromFile(string path, double& simulationTime, double& simulationStepTime, double& conductivity, double& alpha, double& density, double& specificHeat, double& initialTemp, double& ambientTemp) {	
+void Grid::readFromFile(string path) {	
 	int nodesNo = 0, elementsNo = 0;
 	Element* elements = NULL;
 	Node* nodes = NULL;
@@ -171,35 +248,35 @@ void Grid::readFromFile(string path, double& simulationTime, double& simulationS
 	while (getline(file, line)) {
 		if (regex_match(line, std::regex("SimulationTime \\d+"))) {
 			temp = regex_replace(line, std::regex("SimulationTime "), "$1");
-			simulationTime = stod(temp);
+			Grid::simTime = stod(temp);
 		}
 		else if (regex_match(line, std::regex("(SimulationStepTime|dt) \\d+"))) {
 			temp = regex_replace(line, std::regex("SimulationStepTime|dt "), "$1");
-			simulationStepTime = stod(temp);
+			Grid::simStepTime = stod(temp);
 		}
 		else if (regex_match(line, std::regex("(Conductivity|K) \\d+"))) {
 			temp = regex_replace(line, std::regex("Conductivity|K "), "$1");
-			conductivity = stod(temp);
+			Grid::conductivity = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Alfa \\d+"))) {
 			temp = regex_replace(line, std::regex("Alfa "), "$1");
-			alpha = stod(temp);
+			Grid::alpha = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Tot \\d+"))) {
 			temp = regex_replace(line, std::regex("Tot "), "$1");
-			ambientTemp = stod(temp);
+			Grid::ambientTemp = stod(temp);
 		}
 		else if (regex_match(line, std::regex("InitialTemp \\d+"))) {
 			temp = regex_replace(line, std::regex("InitialTemp "), "$1");
-			initialTemp = stod(temp);
+			Grid::initialTemp = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Density \\d+"))) {
 			temp = regex_replace(line, std::regex("Density "), "$1");
-			density = stod(temp);
+			Grid::density = stod(temp);
 		}
 		else if (regex_match(line, std::regex("SpecificHeat \\d+"))) {
 			temp = regex_replace(line, std::regex("SpecificHeat "), "$1");
-			specificHeat = stod(temp);
+			Grid::specificHeat = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Nodes number \\d+"))) {
 			temp = regex_replace(line, std::regex("Nodes number "), "$1");
@@ -293,8 +370,17 @@ void Grid::readFromFile(string path, double& simulationTime, double& simulationS
 	this->nodes = nodes;
 	this->elements = elements;
 
-	// @TODO
-	// delete nodes, elements;
+	if (nodes) {
+		this->width = nodes[0].x - nodes[nodesNo - 1].x;
+		this->height = nodes[0].y - nodes[nodesNo - 1].y;
+
+		double** temp = new double* [width];
+		for (size_t i = 0; i < width; i++)	{
+			temp[i] = new double[height];
+		}
+
+
+	}
 }
 
 /**
@@ -463,8 +549,8 @@ void Grid::jacobian(Element4_2D &el4, Element &currEl) {
 	inverseMatrix(currEl.invJ, currEl.J, currEl.detJ);
 
 	// Wype³nij tablicê pochodnych funkcji N po X i Y - jakobian
-	for (int j = 0; j < p; j++) {
-		for (int k = 0; k < p; k++) {
+	for (int j = 0; j < p; j++) {			// j - element
+		for (int k = 0; k < p; k++) {		// k - punkt ca³kowania
 			el4.dNdX[j][k] = currEl.invJ[0][0] * el4.ksiMatrix[j][k] + currEl.invJ[0][1] * el4.etaMatrix[j][k];
 			el4.dNdY[j][k] = currEl.invJ[1][0] * el4.ksiMatrix[j][k] + currEl.invJ[1][1] * el4.etaMatrix[j][k];
 		}
@@ -586,4 +672,23 @@ void Grid::printBCNodes() {
 			std::cout << i + 1 << "  ";
 
 	std::cout << "\n";
+}
+
+/**
+ * Wyœwietla w oknie konsoli wartoœci, dla których przeprowadzana jest symulacja.
+ */
+void Grid::printSimulationData() {
+	cout << " SimulationTime " << simTime << "\n";
+	cout << " SimulationStepTime " << simStepTime << "\n";
+	cout << " Conductivity " << conductivity << "\n";
+	cout << " Alpha " << alpha << "\n";
+	cout << " InitialTemp " << initialTemp << "\n";
+	cout << " AmbientTemp " << ambientTemp << "\n";
+	cout << " Density " << density << "\n";
+	cout << " SpecificHeat " << specificHeat << "\n";
+	cout << " Nodes number " << nN << "\n";
+	cout << " Elements number " << nE << "\n\n";
+	//printNodesCoords();
+	//printElementsNodes();
+	//printBCNodes();
 }

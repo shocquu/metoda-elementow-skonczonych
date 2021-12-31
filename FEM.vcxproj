@@ -24,6 +24,7 @@
     <ProjectGuid>{476021a5-7bea-4607-beb7-810cc91aeda7}</ProjectGuid>
     <RootNamespace>MES</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>FEM</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

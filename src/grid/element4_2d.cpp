@@ -30,10 +30,10 @@ Element4_2D::Element4_2D(int integralPoints) {
 
 Element4_2D::~Element4_2D() {
 	for (int i = 0; i < p; i++) {
-		delete etaMatrix[i];
-		delete ksiMatrix[i];
+		//delete[] etaMatrix[i];
+		//delete[] ksiMatrix[i];
 	}
-	delete[] etaMatrix, ksiMatrix;
+	//delete[] etaMatrix, ksiMatrix;
 }
 
 /**
