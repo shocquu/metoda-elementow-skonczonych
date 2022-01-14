@@ -16,13 +16,13 @@ Element4_2D::Element4_2D(int integralPoints) {
 	}
 
 	this->nMatrix = new double* [p];
-	this->ksiMatrix = new double* [p];
-	this->etaMatrix = new double* [p];
+	this->dNdKsiMatrix = new double* [p];
+	this->dNdEtaMatrix = new double* [p];
 
 	for (int i = 0; i < p; i++) {
 		nMatrix[i] = new double[p];
-		ksiMatrix[i] = new double[p];
-		etaMatrix[i] = new double[p];
+		dNdKsiMatrix[i] = new double[p];
+		dNdEtaMatrix[i] = new double[p];
 	}
 
 	fillMatrices();
@@ -93,7 +93,7 @@ double* Element4_2D::dNdKsi(double eta) {
  * @param pc - punkt ca³kowania
  * @param xy - wymno¿enie po "x" lub po "y"
  */
-double Element4_2D::dXYdEta(int pc, double xy) {
+double Element4_2D::dXYdEta(int i, double xy) {
 	return dEta[pc] * xy;
 }
 
@@ -136,10 +136,10 @@ double Element4_2D::dXYdKsi(double* xy) {
  */
 void Element4_2D::fillMatrices() {
 	for (int x = 0; x < p; x++)	
-		for (int y = 0; y < 4; y++)	{
+		for (int y = 0; y < p; y++)	{
 			nMatrix[x][y] = nKsiEta(ksi[x], eta[x])[y];
-			etaMatrix[x][y] = dNdEta(ksi[x])[y];
-			ksiMatrix[x][y] = dNdKsi(eta[x])[y];
+			dNdEtaMatrix[x][y] = dNdEta(ksi[x])[y];
+			dNdKsiMatrix[x][y] = dNdKsi(eta[x])[y];
 		}
 	
 }

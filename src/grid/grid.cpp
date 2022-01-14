@@ -3,8 +3,19 @@
 namespace plt = matplotlibcpp;
 using namespace std;
 
+struct Data {
+	double alpha = 300;
+	double simTime = 60;
+	double simStepTime = 1;
+	double conductivity = 25;
+	double density = 7800;
+	double specificHeat = 700;
+	double initialTemp = 100;
+	double ambientTemp = 1200;
+} gridData;
+
 double Grid::alpha = 300;
-double Grid::simTime = 20;
+double Grid::simTime = 500;
 double Grid::simStepTime = 1;
 double Grid::conductivity = 25;
 double Grid::density = 7800;
@@ -45,7 +56,9 @@ Grid::Grid(double height, double width, int nH, int nW) {
 	setElementsNodes();
 	setNodesBC();
 }
-Grid::~Grid() {	
+Grid::~Grid() {
+	// @TODO delete pointers
+
 	for (int i = 0; i < nN; i++) {
 		//delete aggrC[i];
 		//delete aggrH[i];
@@ -121,9 +134,10 @@ void Grid::calcTemperature(Element4_2D el4, bool showMinMax, bool saveToFile) {
 	const int N = nN;
 	double** Ccaret = divide(aggrC, simStepTime, N, N);
 	double** Hcaret = add(aggrH, Ccaret, N, N);
-	double* Pcaret, * vectorC, * t1;
+	double* Pcaret, *vectorC, *t1;
 	double* t0 = new double[N];
 	ofstream file;
+	Gauss g;
 
 	if (showMinMax) cout << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
 	if (saveToFile) {
@@ -135,7 +149,8 @@ void Grid::calcTemperature(Element4_2D el4, bool showMinMax, bool saveToFile) {
 	for (double t = simStepTime; t <= simTime; t += simStepTime) {
 		vectorC = multiply(Ccaret, t0, N);
 		Pcaret = add(aggrP, vectorC, N, N);
-		t1 = Gauss().elimination(Hcaret, Pcaret, N);
+		t1 = g.elimination(Hcaret, Pcaret, N);
+
 		double minTemp, maxTemp;
 		tie(minTemp, maxTemp) = minMax(t1, N);
 		t0 = t1;
@@ -424,7 +439,9 @@ void Grid::aggregate(Element &currEl) {
 void Grid::calcHbc(Element4_2D &el4, Element &currEl, double alpha, double ambientTemp) {
 	struct Side { double* pc1, * pc2; };
 	double Npc1[4][4] = { 0 }, Npc2[4][4] = { 0 };
-	double w[2] = { 1, 1 };
+
+	// @TODO - zmieniæ na pobieranie z klasy Gauss w zale¿noœci od liczby pkt ca³kowania
+	double w[2] = { 1, 1 };  
 	double ksi, eta;
 	ksi = eta = 1 / sqrt(3);
 
@@ -441,7 +458,6 @@ void Grid::calcHbc(Element4_2D &el4, Element &currEl, double alpha, double ambie
 		{ points[6], points[7] }, // lewo
 	};
 
-	/// @TODO - mo¿na policzyæ raz dla wszystkich œcian
 	// Inicjalizacja macierzy funkcji N dla nowych wartoœci ksi i eta
 	for (int i = 0; i < p; i++) {
 		double* Nrow = el4.nKsiEta(sides[i].pc1[0], sides[i].pc1[1]);
@@ -482,8 +498,8 @@ void Grid::calcHbc(Element4_2D &el4, Element &currEl, double alpha, double ambie
  * Tworzenie macierzy H dla ka¿dego punktu ca³kowania. Wymaga poprzedzenia funkcj¹
  * `fillMatrices`, by operowaæ na uzupe³nionych macierzach.
  *
+ * @param el4 - Element4 2D z pochodnymi funkcji kszta³tu
  * @param H - macierz, do której zapisaæ wynik
- * @param detJ - wyznacznik macierzy J
  * @param k - wspó³czynnik przewodzenia
  */
 void Grid::calcH(Element4_2D &el4, Element &currEl, double k) {
@@ -551,8 +567,8 @@ void Grid::jacobian(Element4_2D &el4, Element &currEl) {
 	// Wype³nij tablicê pochodnych funkcji N po X i Y - jakobian
 	for (int j = 0; j < p; j++) {			// j - element
 		for (int k = 0; k < p; k++) {		// k - punkt ca³kowania
-			el4.dNdX[j][k] = currEl.invJ[0][0] * el4.ksiMatrix[j][k] + currEl.invJ[0][1] * el4.etaMatrix[j][k];
-			el4.dNdY[j][k] = currEl.invJ[1][0] * el4.ksiMatrix[j][k] + currEl.invJ[1][1] * el4.etaMatrix[j][k];
+			el4.dNdX[j][k] = currEl.invJ[0][0] * el4.dNdKsiMatrix[j][k] + currEl.invJ[0][1] * el4.dNdEtaMatrix[j][k];
+			el4.dNdY[j][k] = currEl.invJ[1][0] * el4.dNdKsiMatrix[j][k] + currEl.invJ[1][1] * el4.dNdEtaMatrix[j][k];
 		}
 	}
 }

@@ -1,20 +1,18 @@
-#include <iostream>
 #include "utils/functions.h"
 #include "grid/grid.h"
 
-#define LAB_NO 11
+#define LAB_NO 10
 
 int main() {	
 	Element4_2D el4(2);
 
-	#if LAB_NO == 11		
-		//Grid grid(el4, "data/Test4_31_31_trapez.txt");
+	#if LAB_NO == 11
 		Grid grid(el4, "data/MES_31_31_v2.txt");
 		grid.plotHeatMap(el4);
 
 	#elif LAB_NO == 10
 		Grid grid;
-		grid.launch(el4, "data/MES_31_31_v2.txt");
+		grid.launch(el4, "data/Test2_4_4_MixGrid.txt");
 
 	#elif LAB_NO >= 6 && LAB_NO < 10
 		Grid grid(0.1, 0.1, 4, 4);
