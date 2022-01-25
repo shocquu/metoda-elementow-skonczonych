@@ -58,13 +58,18 @@ Grid::~Grid() {
 	//elements = NULL;
 }
 
+Grid& Grid::heatMap() {
+	this->plotHeatMap();
+	return *this;
+}
+
 Grid& Grid::start(bool saveToFile) {
 	this->launch(this->data, saveToFile);
 	return *this;
 }
 
-Grid& Grid::heatMap() {
-	this->plotHeatMap();
+Grid& Grid::start(SimulationData data, bool saveToFile) {
+	this->launch(data, saveToFile);
 	return *this;
 }
 
@@ -117,7 +122,9 @@ void Grid::plotHeatMap() {
 		std::cout << " DONE\n";
 	}
 
-	int nW = 31, nH = 31; // @EDIT
+	// @EDIT
+	int nW = this->nW > 0 ? this->nW : sqrt(this->nN);
+	int nH = this->nH > 0 ? this->nH : sqrt(this->nN);
 	double xStep = width / ((double)nW - 1);
 	double yStep = height / ((double)nH - 1);
 
@@ -333,25 +340,33 @@ void Grid::readFromFile(std::string path) {
  * @param globalP - tablica do zapisu zagregowanej macierzy P
  * @param currEl - element, na którym metoda ma operowaæ
  */
-void Grid::aggregate(Element &currEl) {
-	int nodesId[4] = { currEl.id[0] - 1, currEl.id[1] - 1, currEl.id[2] - 1, currEl.id[3] - 1 };
-	int sideNodes[4][4][2] = {									// pomocnicza macierz ID wêz³ów do rozmieszczenia elementów
-		{ { nodesId[0], nodesId[0] }, { nodesId[0], nodesId[1] }, { nodesId[0], nodesId[2] }, { nodesId[0], nodesId[3] } },
-		{ { nodesId[1], nodesId[0] }, { nodesId[1], nodesId[1] }, { nodesId[1], nodesId[2] }, { nodesId[1], nodesId[3] } },
-		{ { nodesId[2], nodesId[0] }, { nodesId[2], nodesId[1] }, { nodesId[2], nodesId[2] }, { nodesId[2], nodesId[3] } },
-		{ { nodesId[3], nodesId[0] }, { nodesId[3], nodesId[1] }, { nodesId[3], nodesId[2] }, { nodesId[3], nodesId[3] } },
-	};
+void Grid::aggregate() {
+	for (int i = 0; i < nE; i++) {
+		Element currEl = elements[i];
+		jacobian(currEl);
+		calcH(currEl);
+		calcC(currEl);
+		calcHbc(currEl);
 
-	for (int i = 0; i < p; i++) {
-		for (int j = 0; j < p; j++) {
-			int rowIndex = sideNodes[i][j][0];
-			int colIndex = sideNodes[i][j][1];
-			aggrH[rowIndex][colIndex] += currEl.H[i][j] + currEl.Hbc[i][j];
-			aggrC[rowIndex][colIndex] += currEl.C[i][j];
+		int nodesId[4] = { currEl.id[0] - 1, currEl.id[1] - 1, currEl.id[2] - 1, currEl.id[3] - 1 };
+		int sideNodes[4][4][2] = {									// pomocnicza macierz ID wêz³ów do rozmieszczenia elementów
+			{ { nodesId[0], nodesId[0] }, { nodesId[0], nodesId[1] }, { nodesId[0], nodesId[2] }, { nodesId[0], nodesId[3] } },
+			{ { nodesId[1], nodesId[0] }, { nodesId[1], nodesId[1] }, { nodesId[1], nodesId[2] }, { nodesId[1], nodesId[3] } },
+			{ { nodesId[2], nodesId[0] }, { nodesId[2], nodesId[1] }, { nodesId[2], nodesId[2] }, { nodesId[2], nodesId[3] } },
+			{ { nodesId[3], nodesId[0] }, { nodesId[3], nodesId[1] }, { nodesId[3], nodesId[2] }, { nodesId[3], nodesId[3] } },
+		};
+
+		for (int i = 0; i < p; i++) {
+			for (int j = 0; j < p; j++) {
+				int rowIndex = sideNodes[i][j][0];
+				int colIndex = sideNodes[i][j][1];
+				aggrH[rowIndex][colIndex] += currEl.H[i][j] + currEl.Hbc[i][j];
+				aggrC[rowIndex][colIndex] += currEl.C[i][j];
+			}
+
+			int rowIndex = nodesId[i];
+			aggrP[rowIndex] += currEl.P[i];
 		}
-
-		int rowIndex = nodesId[i];
-		aggrP[rowIndex] += currEl.P[i];
 	}
 }
 
@@ -362,26 +377,21 @@ void Grid::aggregate(Element &currEl) {
  * @param saveToFile - okreœla czy zapisaæ wyniki do pliku
  */
 void Grid::calcTemperature(bool showMinMax, bool saveToFile) {
-	for (int i = 0; i < nE; i++) {
-		Element currEl = elements[i];
-		jacobian(currEl);
-		calcH(currEl);
-		calcC(currEl);
-		calcHbc(currEl);
-		aggregate(currEl);
-	}
+	aggregate();
 
 	const int N = nN;
+	double minTemp, maxTemp;
 	double** Ccaret = divide(aggrC, data.simStepTime, N, N);
 	double** Hcaret = add(aggrH, Ccaret, N, N);
 	double* Pcaret, * vectorC = new double[N], * t1 = new double[N];
 	double* t0 = new double[N];
+	//std::vector<double> t0(N, 10);
 	std::ofstream file;
 	Gauss g;
 
 	if (showMinMax) std::cout << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
 	if (saveToFile) {
-		file.open("./output/Test4_31_31_trapez_simTime_60.txt");
+		file.open("./output/NAME.txt");
 		file << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
 	}
 
@@ -389,9 +399,7 @@ void Grid::calcTemperature(bool showMinMax, bool saveToFile) {
 	for (double t = data.simStepTime; t <= data.simTime; t += data.simStepTime) {
 		vectorC = multiply(Ccaret, t0, N);
 		Pcaret = add(aggrP, vectorC, N, N);
-		t1 = g.elimination(Hcaret, Pcaret, N);
-
-		double minTemp, maxTemp;
+		t1 = g.elimination(Hcaret, Pcaret, N);		
 		std::tie(minTemp, maxTemp) = minMax(t1, N);
 
 		for (int i = 0; i < N; i++)
@@ -401,14 +409,8 @@ void Grid::calcTemperature(bool showMinMax, bool saveToFile) {
 				nodes[i].tempAtTime.push_back(t1[i]);
 
 		t0 = t1;
-
-		if (showMinMax) {
-			std::cout << std::setw(8) << t << "   " << std::setw(10) << minTemp << "   " << std::setw(10) << maxTemp << "\n";
-		}
-
-		if (saveToFile) {
-			file << std::setw(8) << t << "   " << std::setw(10) << minTemp << "   " << std::setw(10) << maxTemp << "\n";
-		}
+		if (showMinMax) std::cout << std::setw(8) << t << "   " << std::setw(10) << minTemp << "   " << std::setw(10) << maxTemp << "\n";
+		if (saveToFile) file << std::setw(8) << t << "   " << std::setw(10) << minTemp << "   " << std::setw(10) << maxTemp << "\n";
 	}
 
 	if (saveToFile) file.close();
@@ -416,66 +418,26 @@ void Grid::calcTemperature(bool showMinMax, bool saveToFile) {
 }
 
 /**
- * Ustawia w przekazanej tablicy sumê macierzy Hbc oraz wektor P dla ka¿dego punktu ca³kowania.
+ * Ustawia dla przekazanego elementu sumê macierzy Hbc oraz wektor P dla ka¿dego punktu ca³kowania.
  *
- * @param Hbc - tablica, do której zapisaæ sumê macierzy Hbc z ka¿dego punktu ca³kowania
- * @param P - tablica, do której zapisaæ wektor P
- * @param alpha - wspó³czynnik ...
- * @param ambientTemp - temperatura otoczenia
+ * @param currEl - element do zapisu macierzy Hbc i P
  */
 void Grid::calcHbc(Element &currEl) {
-	struct Side { double* pc1, *pc2; };
-	double Npc1[4][4] = { 0 }, Npc2[4][4] = { 0 };
-
-	// @TODO - zmieniæ na pobieranie z klasy Gauss w zale¿noœci od liczby pkt ca³kowania
-	double w[2] = { 1, 1 };  
-	double ksi, eta;
-	ksi = eta = 1 / sqrt(3);
-
-	double points[8][2] = {
-		{ -ksi, -1 }, { ksi, -1 }, // pc1
-		{ 1, -eta }, { 1, eta },   // pc2
-		{ ksi, 1 }, { -ksi, 1 },   // pc3
-		{ -1, eta }, { -1, -eta }, // pc4
-	};
-	Side sides[4] = {
-		{ points[0], points[1] }, // dó³
-		{ points[2], points[3] }, // prawo
-		{ points[4], points[5] }, // góra
-		{ points[6], points[7] }, // lewo
-	};
-
-	// Inicjalizacja macierzy funkcji N dla nowych wartoœci ksi i eta
 	for (int i = 0; i < p; i++) {
-		std::array<double, 4> Nrow = el4.nKsiEta(sides[i].pc1[0], sides[i].pc1[1]);
-		Npc1[i][0] = Nrow[0];
-		Npc1[i][1] = Nrow[1];
-		Npc1[i][2] = Nrow[2];
-		Npc1[i][3] = Nrow[3];
-		Nrow = el4.nKsiEta(sides[i].pc2[0], sides[i].pc2[1]);
-		Npc2[i][0] = Nrow[0];
-		Npc2[i][1] = Nrow[1];
-		Npc2[i][2] = Nrow[2];
-		Npc2[i][3] = Nrow[3];
-	}
-
-	// Wype³nianie macierzy
-	for (int i = 0; i < p; i++) { // i - œciana elementu
 		int n1Index = currEl.id[i] - 1;
 		int n2Index = currEl.id[(i + 1) % 4] - 1;
 
-		// Sprawdzanie warunku brzegowego na œcianach elementu
 		if (nodes[n1Index].bc > 0 && nodes[n2Index].bc > 0) {
 			double L = distance(nodes[n1Index].x, nodes[n1Index].y, nodes[n2Index].x, nodes[n2Index].y);
 			double locDetJ = L / 2;
 
 			for (int j = 0; j < p; j++) {
 				for (int k = 0; k < p; k++) {
-					currEl.Hbc[j][k] += w[0] * (Npc1[i][j] * Npc1[i][k]) * data.alpha * locDetJ;
-					currEl.Hbc[j][k] += w[1] * (Npc2[i][j] * Npc2[i][k]) * data.alpha * locDetJ;
+					currEl.Hbc[j][k] += el4.w[0] * (el4.Npc1[i][j] * el4.Npc1[i][k]) * data.alpha * locDetJ;
+					currEl.Hbc[j][k] += el4.w[1] * (el4.Npc2[i][j] * el4.Npc2[i][k]) * data.alpha * locDetJ;
 				}
 
-				currEl.P[j] += (w[0] * Npc1[i][j] + w[1] * Npc2[i][j]) * data.alpha * data.ambientTemp * locDetJ;
+				currEl.P[j] += (el4.w[0] * el4.Npc1[i][j] + el4.w[1] * el4.Npc2[i][j]) * data.alpha * data.ambientTemp * locDetJ;
 			}
 		}
 	}
@@ -495,8 +457,8 @@ void Grid::calcH(Element &currEl) {
 		double rowsY[4] = { currEl.dNdY[i][0], currEl.dNdY[i][1], currEl.dNdY[i][2], currEl.dNdY[i][3] };
 
 		for (int j = 0; j < p; j++)
-			for (int l = 0; l < p; l++)
-				currEl.H[j][l] += data.conductivity * (rowsX[j] * rowsX[l] + rowsY[j] * rowsY[l]) * currEl.detJ;
+			for (int k = 0; k < p; k++)
+				currEl.H[j][k] += data.conductivity * (rowsX[j] * rowsX[k] + rowsY[j] * rowsY[k]) * currEl.detJ;
 	}
 }
 

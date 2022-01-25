@@ -19,8 +19,8 @@
 
 struct SimulationData {
 	double alpha = 300;
-	double simTime = 60;
-	double simStepTime = 1;
+	double simTime = 500;
+	double simStepTime = 50;
 	double conductivity = 25;
 	double density = 7800;
 	double specificHeat = 700;
@@ -45,18 +45,18 @@ struct Grid {
 		
 	Grid& heatMap();
 	Grid& start(bool saveToFile = false);
+	Grid& start(SimulationData data, bool saveToFile = false);
 	void plotHeatMap();
 	void launch(std::string path, bool saveToFile = false);
 	void launch(SimulationData data, bool saveToFile = false);
 	void readFromFile(std::string path);
-	void aggregate(Element &currEl);
+	void calcTemperature(bool showMinMax = false, bool saveToFile = false);
+	void aggregate();
 	void calcHbc(Element &currEl);
 	void calcH(Element &currEl);
 	void calcC(Element &currEl);
 	void calcJ(Element &currEl, int pc);
 	void jacobian(Element &currEl);
-	void calcTemperature(bool showMinMax = false, bool saveToFile = false);
-	double distance(double x1, double y1, double x2, double y2);
 	void initMatrices();
 	void setNodesCoords();
 	void printNodesCoords();
@@ -65,5 +65,6 @@ struct Grid {
 	void setNodesBC();
 	void printBCNodes();
 	void printSimulationData();
+	double distance(double x1, double y1, double x2, double y2);
 };
 

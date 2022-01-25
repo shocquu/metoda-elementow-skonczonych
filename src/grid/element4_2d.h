@@ -7,14 +7,14 @@
 #include "../utils/gauss.h"
 #include "element.h"
 
+struct Side { double* pc1, * pc2; };
+
 struct Element4_2D {
-	// double **nMatrix, **dNdKsiMatrix, **dNdEtaMatrix;
-	double dNdX[4][4] = { 0 }, dNdY[4][4] = { 0 };
-	std::vector<double> ksi, eta;
+	double dNdX[4][4] = { 0 }, dNdY[4][4] = { 0 }, Npc1[4][4] = { 0 }, Npc2[4][4] = { 0 };
 	std::vector<std::array<double, 4>> nMatrix, dNdKsiMatrix, dNdEtaMatrix;
+	std::vector<double> ksi, eta, w;
 	double detJ;
-	double *w;
-	int p;
+	int p, n;
 
 	Element4_2D(int integralPoints = 2);
 	
