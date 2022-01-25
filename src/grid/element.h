@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 
 /**
  * Element uniwersalny.
@@ -17,4 +18,6 @@ struct Element {
 	double P[4] = { 0 };
 	double detJ = 0;
 	double temperature = 0;
+
+	double dNdX[4][4] = { 0 }, dNdY[4][4] = { 0 };
 };

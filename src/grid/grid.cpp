@@ -1,27 +1,6 @@
 #include "grid.h"
 
 namespace plt = matplotlibcpp;
-using namespace std;
-
-struct Data {
-	double alpha = 300;
-	double simTime = 60;
-	double simStepTime = 1;
-	double conductivity = 25;
-	double density = 7800;
-	double specificHeat = 700;
-	double initialTemp = 100;
-	double ambientTemp = 1200;
-} gridData;
-
-double Grid::alpha = 300;
-double Grid::simTime = 500;
-double Grid::simStepTime = 1;
-double Grid::conductivity = 25;
-double Grid::density = 7800;
-double Grid::specificHeat = 700;
-double Grid::initialTemp = 100;
-double Grid::ambientTemp = 1200;
 
 Grid::Grid() {
 	width = height = 0;
@@ -31,15 +10,14 @@ Grid::Grid() {
 	aggrH = aggrC = nullptr;
 	aggrP = nullptr;
 }
-Grid::Grid(Element4_2D el4, string path) {
+Grid::Grid(std::string path) {
 	width = height = 0;
 	nW = nH = nN = nE = p = 0;
 	nodes = nullptr;
 	elements = nullptr;
 	aggrH = aggrC = nullptr;
 	aggrP = nullptr;
-	readFromFile(path);
-	initMatrices();
+	readFromFile(path);	
 }
 Grid::Grid(double height, double width, int nH, int nW) {
 	this->height = height;
@@ -80,6 +58,16 @@ Grid::~Grid() {
 	//elements = NULL;
 }
 
+Grid& Grid::start(bool saveToFile) {
+	this->launch(this->data, saveToFile);
+	return *this;
+}
+
+Grid& Grid::heatMap() {
+	this->plotHeatMap();
+	return *this;
+}
+
 /**
  * Dokonywanie pomiarów dla danych wczytanych z pliku.
  *
@@ -87,10 +75,10 @@ Grid::~Grid() {
  * @param path - œcie¿ka do pliku tekstowego zawieraj¹cego dane o siatcê
  * @param showDetails - opcja umo¿liwiaj¹ca wyœwietlanie zawartoœci macierzy
  */
-void Grid::launch(Element4_2D &el4, std::string path, bool showDetails) {
+void Grid::launch(std::string path, bool saveToFile) {
 	readFromFile(path);
 	if(nodes) initMatrices();
-	launch(el4, simTime, simStepTime, conductivity, alpha, density, specificHeat, initialTemp, ambientTemp, showDetails);
+	launch(this->data, saveToFile);
 }
 
 /**
@@ -106,98 +94,38 @@ void Grid::launch(Element4_2D &el4, std::string path, bool showDetails) {
  * @param ambientTemp - temperatura otoczenia
  * @param showDetails - opcja umo¿liwiaj¹ca wyœwietlanie zawartoœci macierzy
  */
-void Grid::launch(Element4_2D &el4, double simTime, double simStepTime, double conductivity, double alpha, double density, double specificHeat, double initialTemp, double ambientTemp, bool showDetails) {
-	Grid::simTime = simTime;
-	Grid::simStepTime = simStepTime;
-	Grid::conductivity = conductivity;
-	Grid::alpha = alpha;
-	Grid::density = density;
-	Grid::specificHeat = specificHeat;
-	Grid::initialTemp = initialTemp;
-	Grid::ambientTemp = ambientTemp;
+void Grid::launch(SimulationData dataset, bool saveToFile) {
+	this->data = dataset;
 
 	printBanner();
 	printSimulationData();		
-	calcTemperature(el4, true);
+	calcTemperature(true, saveToFile);
 }
 
-void Grid::calcTemperature(Element4_2D el4, bool showMinMax, bool saveToFile) {
-	for (int i = 0; i < nE; i++) {
-		Element currEl = elements[i];
-		jacobian(el4, currEl);
-		calcH(el4, currEl, conductivity);
-		calcC(el4, currEl, specificHeat, density);
-		calcHbc(el4, currEl, alpha, ambientTemp);
-		aggregate(currEl);
-	}
-
-	const int N = nN;
-	double** Ccaret = divide(aggrC, simStepTime, N, N);
-	double** Hcaret = add(aggrH, Ccaret, N, N);
-	double* Pcaret, *vectorC, *t1;
-	double* t0 = new double[N];
-	ofstream file;
-	Gauss g;
-
-	if (showMinMax) cout << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
-	if (saveToFile) {
-		file.open("tempSaveTest.txt");
-		file << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
-	}
-	
-	for (int i = 0; i < N; i++) t0[i] = initialTemp;
-	for (double t = simStepTime; t <= simTime; t += simStepTime) {
-		vectorC = multiply(Ccaret, t0, N);
-		Pcaret = add(aggrP, vectorC, N, N);
-		t1 = g.elimination(Hcaret, Pcaret, N);
-
-		double minTemp, maxTemp;
-		tie(minTemp, maxTemp) = minMax(t1, N);
-		t0 = t1;
-
-		for (int i = 0; i < N; i++) {
-			if (nodes[i].bc == 0)
-				nodes[i].tempAtTime.push_back(t0[i]);
-			else
-				nodes[i].tempAtTime.push_back(t1[i]);
-		}
-
-		if (showMinMax) {
-			pair<double, double> temps = minMax(t1, N);
-			cout << setw(8) << t << "   " << setw(10) << temps.first << "   " << setw(10) << temps.second << "\n";
-		}
-
-		if (saveToFile) {
-			pair<double, double> temps = minMax(t1, N);
-			file << setw(8) << t << "   " << setw(10) << temps.first << "   " << setw(10) << temps.second << "\n";
-		}
-	}
-
-	if (saveToFile) file.close();
-	delete[] t0;
-}
-
-void Grid::plotHeatMap(Element4_2D el4) {
+/**
+ * Tworzy wykres rozk³adu temperatury dla ka¿dego kroku.
+ */
+void Grid::plotHeatMap() {
 	if (!nodes) {
-		cout << "File not found.\n";
+		std::cout << "File not found.\n";
 		return;
 	}
 
 	if (nodes[0].tempAtTime.empty()) {
-		cout << " Calculating ...";
-		calcTemperature(el4);
-		cout << " DONE\n";
+		std::cout << " Calculating ...";
+		calcTemperature();
+		std::cout << " DONE\n";
 	}
 
 	int nW = 31, nH = 31; // @EDIT
 	double xStep = width / ((double)nW - 1);
 	double yStep = height / ((double)nH - 1);
 
-	vector<float> temp(nN);	
-	vector<double> xTicks, yTicks;
-	const vector<string> labels = {};
-	const vector<double> extent = { 0, width, 0, height};
-	const map<string, string> options = { {"interpolation", "bilinear"}, {"cmap", "plasma"}, {"origin", "lower"}, {"aspect", "auto"} };
+	std::vector<float> temp(nN);
+	std::vector<double> xTicks, yTicks;
+	const std::vector<std::string> labels = {};
+	const std::vector<double> extent = { 0, width, 0, height};
+	const std::map<std::string, std::string> options = { {"interpolation", "bilinear"}, {"cmap", "plasma"}, {"origin", "lower"}, {"aspect", "auto"} };
 	const float* tptr = &(temp[0]);
 	const int colors = 1;
 	int passedTime = 0;
@@ -214,13 +142,11 @@ void Grid::plotHeatMap(Element4_2D el4) {
 			}
 		}
 
-		passedTime += simStepTime;
+		passedTime += data.simStepTime;
 		PyObject* mat;
 		plt::clf();
-		plt::title("Rozklad temperatury po " + to_string(passedTime) + (passedTime > 1 ? " sekundach" : " sekundzie"));
+		plt::title("Rozklad temperatury po " + std::to_string(passedTime) + (passedTime > 1 ? " sekundach" : " sekundzie"));
 		plt::imshow(tptr, nW, nH, colors, options, &mat, extent);
-		//plt::xticks(xTicks, labels);
-		//plt::grid(true);
 		plt::colorbar(mat);
 		plt::pause(0.1);
 		Py_DECREF(mat);
@@ -250,7 +176,8 @@ void Grid::plotHeatMap(Element4_2D el4) {
  * @param grid - siatka do zapisu danych
  * @param simulationTime, simulationStepTime, ... - referencje do zapisu wartoœci
  */
-void Grid::readFromFile(string path) {	
+void Grid::readFromFile(std::string path) {	
+	using namespace std;
 	int nodesNo = 0, elementsNo = 0;
 	Element* elements = NULL;
 	Node* nodes = NULL;
@@ -263,35 +190,35 @@ void Grid::readFromFile(string path) {
 	while (getline(file, line)) {
 		if (regex_match(line, std::regex("SimulationTime \\d+"))) {
 			temp = regex_replace(line, std::regex("SimulationTime "), "$1");
-			Grid::simTime = stod(temp);
+			data.simTime = stod(temp);
 		}
 		else if (regex_match(line, std::regex("(SimulationStepTime|dt) \\d+"))) {
 			temp = regex_replace(line, std::regex("SimulationStepTime|dt "), "$1");
-			Grid::simStepTime = stod(temp);
+			data.simStepTime = stod(temp);
 		}
 		else if (regex_match(line, std::regex("(Conductivity|K) \\d+"))) {
 			temp = regex_replace(line, std::regex("Conductivity|K "), "$1");
-			Grid::conductivity = stod(temp);
+			data.conductivity = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Alfa \\d+"))) {
 			temp = regex_replace(line, std::regex("Alfa "), "$1");
-			Grid::alpha = stod(temp);
+			data.alpha = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Tot \\d+"))) {
 			temp = regex_replace(line, std::regex("Tot "), "$1");
-			Grid::ambientTemp = stod(temp);
+			data.ambientTemp = stod(temp);
 		}
 		else if (regex_match(line, std::regex("InitialTemp \\d+"))) {
 			temp = regex_replace(line, std::regex("InitialTemp "), "$1");
-			Grid::initialTemp = stod(temp);
+			data.initialTemp = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Density \\d+"))) {
 			temp = regex_replace(line, std::regex("Density "), "$1");
-			Grid::density = stod(temp);
+			data.density = stod(temp);
 		}
 		else if (regex_match(line, std::regex("SpecificHeat \\d+"))) {
 			temp = regex_replace(line, std::regex("SpecificHeat "), "$1");
-			Grid::specificHeat = stod(temp);
+			data.specificHeat = stod(temp);
 		}
 		else if (regex_match(line, std::regex("Nodes number \\d+"))) {
 			temp = regex_replace(line, std::regex("Nodes number "), "$1");
@@ -393,9 +320,9 @@ void Grid::readFromFile(string path) {
 		for (size_t i = 0; i < width; i++)	{
 			temp[i] = new double[height];
 		}
-
-
 	}
+
+	initMatrices();
 }
 
 /**
@@ -429,6 +356,66 @@ void Grid::aggregate(Element &currEl) {
 }
 
 /**
+ * Oblicza temperaturê w ka¿dym wêŸle.
+ *
+ * @param showMinMax - okreœla czy wyœwietlaæ wartoœci minimalne i maksymalne w konsoli
+ * @param saveToFile - okreœla czy zapisaæ wyniki do pliku
+ */
+void Grid::calcTemperature(bool showMinMax, bool saveToFile) {
+	for (int i = 0; i < nE; i++) {
+		Element currEl = elements[i];
+		jacobian(currEl);
+		calcH(currEl);
+		calcC(currEl);
+		calcHbc(currEl);
+		aggregate(currEl);
+	}
+
+	const int N = nN;
+	double** Ccaret = divide(aggrC, data.simStepTime, N, N);
+	double** Hcaret = add(aggrH, Ccaret, N, N);
+	double* Pcaret, * vectorC = new double[N], * t1 = new double[N];
+	double* t0 = new double[N];
+	std::ofstream file;
+	Gauss g;
+
+	if (showMinMax) std::cout << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
+	if (saveToFile) {
+		file.open("./output/Test4_31_31_trapez_simTime_60.txt");
+		file << " Time[s]   MinTemp[C]   MaxTemp[C]\n";
+	}
+
+	for (int i = 0; i < N; i++) t0[i] = data.initialTemp;
+	for (double t = data.simStepTime; t <= data.simTime; t += data.simStepTime) {
+		vectorC = multiply(Ccaret, t0, N);
+		Pcaret = add(aggrP, vectorC, N, N);
+		t1 = g.elimination(Hcaret, Pcaret, N);
+
+		double minTemp, maxTemp;
+		std::tie(minTemp, maxTemp) = minMax(t1, N);
+
+		for (int i = 0; i < N; i++)
+			if (nodes[i].bc == 0)
+				nodes[i].tempAtTime.push_back(t0[i]);
+			else
+				nodes[i].tempAtTime.push_back(t1[i]);
+
+		t0 = t1;
+
+		if (showMinMax) {
+			std::cout << std::setw(8) << t << "   " << std::setw(10) << minTemp << "   " << std::setw(10) << maxTemp << "\n";
+		}
+
+		if (saveToFile) {
+			file << std::setw(8) << t << "   " << std::setw(10) << minTemp << "   " << std::setw(10) << maxTemp << "\n";
+		}
+	}
+
+	if (saveToFile) file.close();
+	delete[] t0;
+}
+
+/**
  * Ustawia w przekazanej tablicy sumê macierzy Hbc oraz wektor P dla ka¿dego punktu ca³kowania.
  *
  * @param Hbc - tablica, do której zapisaæ sumê macierzy Hbc z ka¿dego punktu ca³kowania
@@ -436,8 +423,8 @@ void Grid::aggregate(Element &currEl) {
  * @param alpha - wspó³czynnik ...
  * @param ambientTemp - temperatura otoczenia
  */
-void Grid::calcHbc(Element4_2D &el4, Element &currEl, double alpha, double ambientTemp) {
-	struct Side { double* pc1, * pc2; };
+void Grid::calcHbc(Element &currEl) {
+	struct Side { double* pc1, *pc2; };
 	double Npc1[4][4] = { 0 }, Npc2[4][4] = { 0 };
 
 	// @TODO - zmieniæ na pobieranie z klasy Gauss w zale¿noœci od liczby pkt ca³kowania
@@ -460,7 +447,7 @@ void Grid::calcHbc(Element4_2D &el4, Element &currEl, double alpha, double ambie
 
 	// Inicjalizacja macierzy funkcji N dla nowych wartoœci ksi i eta
 	for (int i = 0; i < p; i++) {
-		double* Nrow = el4.nKsiEta(sides[i].pc1[0], sides[i].pc1[1]);
+		std::array<double, 4> Nrow = el4.nKsiEta(sides[i].pc1[0], sides[i].pc1[1]);
 		Npc1[i][0] = Nrow[0];
 		Npc1[i][1] = Nrow[1];
 		Npc1[i][2] = Nrow[2];
@@ -484,11 +471,11 @@ void Grid::calcHbc(Element4_2D &el4, Element &currEl, double alpha, double ambie
 
 			for (int j = 0; j < p; j++) {
 				for (int k = 0; k < p; k++) {
-					currEl.Hbc[j][k] += w[0] * (Npc1[i][j] * Npc1[i][k]) * alpha * locDetJ;
-					currEl.Hbc[j][k] += w[1] * (Npc2[i][j] * Npc2[i][k]) * alpha * locDetJ;
+					currEl.Hbc[j][k] += w[0] * (Npc1[i][j] * Npc1[i][k]) * data.alpha * locDetJ;
+					currEl.Hbc[j][k] += w[1] * (Npc2[i][j] * Npc2[i][k]) * data.alpha * locDetJ;
 				}
 
-				currEl.P[j] += (w[0] * Npc1[i][j] + w[1] * Npc2[i][j]) * alpha * ambientTemp * locDetJ;
+				currEl.P[j] += (w[0] * Npc1[i][j] + w[1] * Npc2[i][j]) * data.alpha * data.ambientTemp * locDetJ;
 			}
 		}
 	}
@@ -502,14 +489,14 @@ void Grid::calcHbc(Element4_2D &el4, Element &currEl, double alpha, double ambie
  * @param H - macierz, do której zapisaæ wynik
  * @param k - wspó³czynnik przewodzenia
  */
-void Grid::calcH(Element4_2D &el4, Element &currEl, double k) {
+void Grid::calcH(Element &currEl) {
 	for (int i = 0; i < p; i++) {
-		double rowsX[4] = { el4.dNdX[i][0],	el4.dNdX[i][1], el4.dNdX[i][2],	el4.dNdX[i][3] };
-		double rowsY[4] = { el4.dNdY[i][0], el4.dNdY[i][1], el4.dNdY[i][2], el4.dNdY[i][3] };
+		double rowsX[4] = { currEl.dNdX[i][0], currEl.dNdX[i][1], currEl.dNdX[i][2], currEl.dNdX[i][3] };
+		double rowsY[4] = { currEl.dNdY[i][0], currEl.dNdY[i][1], currEl.dNdY[i][2], currEl.dNdY[i][3] };
 
 		for (int j = 0; j < p; j++)
 			for (int l = 0; l < p; l++)
-				currEl.H[j][l] += k * (rowsX[j] * rowsX[l] + rowsY[j] * rowsY[l]) * currEl.detJ;
+				currEl.H[j][l] += data.conductivity * (rowsX[j] * rowsX[l] + rowsY[j] * rowsY[l]) * currEl.detJ;
 	}
 }
 
@@ -519,56 +506,52 @@ void Grid::calcH(Element4_2D &el4, Element &currEl, double k) {
  * @param c - ciep³o w³aœciwe
  * @param ro - gêstoœæ materia³u
  */
-void Grid::calcC(Element4_2D &el4, Element &currEl, double c, double ro) {	
+void Grid::calcC(Element &currEl) {	
 	for (int i = 0; i < p; i++) {
-		double* N = el4.nMatrix[i];
+		std::array<double, 4> N = el4.nMatrix[i];
 
 		for (int j = 0; j < p; j++)
 			for (int k = 0; k < p; k++)
-				currEl.C[j][k] += c * ro * (N[j] * N[k]) * currEl.detJ;
+				currEl.C[j][k] += data.specificHeat * data.density * (N[j] * N[k]) * currEl.detJ;
 	}
 }
 
 /**
  * Oblicza macierz Jakobiego.
  *
- * @param J - macierz Ÿród³owa do zapisania danych
- * @param el4 - struktura z metodami do liczenia pochodnych
- * @param pc - punkt ca³kowania
- * @param x, y - wspó³rzêdna x i y
+ * @param currEl - element, dla którego liczona jest macierz Jakobiego
+ * @param pc - obecny punkt ca³kowania ???
  */
-void Grid::calcJ(Element4_2D &el4, Element &currEl) {
-	// i - punkt ca³kowania
+void Grid::calcJ(Element &currEl, int pc) {
+	// i - nr funkcji kszta³tu	
 	for (int i = 0; i < p; i++) {
 		int nodeId = currEl.id[i] - 1;
 		double x = nodes[nodeId].x;
 		double y = nodes[nodeId].y;
-
-		currEl.J[0][0] += el4.dXYdKsi(i, x);
-		currEl.J[0][1] += el4.dXYdEta(i, x);
-		currEl.J[1][0] += el4.dXYdKsi(i, y);
-		currEl.J[1][1] += el4.dXYdEta(i, y);
-	}	
+		
+		currEl.J[0][0] += el4.dNdKsiMatrix[pc][i] * x;
+		currEl.J[0][1] += el4.dNdEtaMatrix[pc][i] * x;
+		currEl.J[1][0] += el4.dNdKsiMatrix[pc][i] * y;
+		currEl.J[1][1] += el4.dNdEtaMatrix[pc][i] * y;
+				
+		currEl.detJ = detOfMatrix(currEl.J);
+		inverseMatrix(currEl.invJ, currEl.J, currEl.detJ);
+	}
 }
 
 /**
  * Uzupe³nia Jakobian dla ka¿dego punktu ca³kowania i-tego elementu.
  *
- * @param i - punkt ca³kowania
- * @param el4 - struktura z danymi o elemencie
- * @param grid - siatka, na której wykonywana jest procedura liczenia Jakobianu
+ * @param currEl - element, dla którego punktów ca³kowania ma byæ liczony jakobian
  */
-void Grid::jacobian(Element4_2D &el4, Element &currEl) {
+void Grid::jacobian(Element &currEl) {	
 	this->p = el4.p;
-	this->calcJ(el4, currEl);
-	currEl.detJ = detOfMatrix(currEl.J);
-	inverseMatrix(currEl.invJ, currEl.J, currEl.detJ);
+	this->calcJ(currEl, 0);	
 
-	// Wype³nij tablicê pochodnych funkcji N po X i Y - jakobian
-	for (int j = 0; j < p; j++) {			// j - element
-		for (int k = 0; k < p; k++) {		// k - punkt ca³kowania
-			el4.dNdX[j][k] = currEl.invJ[0][0] * el4.dNdKsiMatrix[j][k] + currEl.invJ[0][1] * el4.dNdEtaMatrix[j][k];
-			el4.dNdY[j][k] = currEl.invJ[1][0] * el4.dNdKsiMatrix[j][k] + currEl.invJ[1][1] * el4.dNdEtaMatrix[j][k];
+	for (int i = 0; i < p; i++) {
+		for (int j = 0; j < p; j++) {
+			currEl.dNdX[i][j] += currEl.invJ[0][0] * el4.dNdKsiMatrix[i][j] + currEl.invJ[0][1] * el4.dNdEtaMatrix[i][j];
+			currEl.dNdY[i][j] += currEl.invJ[1][0] * el4.dNdKsiMatrix[i][j] + currEl.invJ[1][1] * el4.dNdEtaMatrix[i][j];
 		}
 	}
 }
@@ -694,16 +677,16 @@ void Grid::printBCNodes() {
  * Wyœwietla w oknie konsoli wartoœci, dla których przeprowadzana jest symulacja.
  */
 void Grid::printSimulationData() {
-	cout << " SimulationTime " << simTime << "\n";
-	cout << " SimulationStepTime " << simStepTime << "\n";
-	cout << " Conductivity " << conductivity << "\n";
-	cout << " Alpha " << alpha << "\n";
-	cout << " InitialTemp " << initialTemp << "\n";
-	cout << " AmbientTemp " << ambientTemp << "\n";
-	cout << " Density " << density << "\n";
-	cout << " SpecificHeat " << specificHeat << "\n";
-	cout << " Nodes number " << nN << "\n";
-	cout << " Elements number " << nE << "\n\n";
+	std::cout << " SimulationTime " << data.simTime << "\n";
+	std::cout << " SimulationStepTime " << data.simStepTime << "\n";
+	std::cout << " Conductivity " << data.conductivity << "\n";
+	std::cout << " Alpha " << data.alpha << "\n";
+	std::cout << " InitialTemp " << data.initialTemp << "\n";
+	std::cout << " AmbientTemp " << data.ambientTemp << "\n";
+	std::cout << " Density " << data.density << "\n";
+	std::cout << " SpecificHeat " << data.specificHeat << "\n";
+	std::cout << " Nodes number " << nN << "\n";
+	std::cout << " Elements number " << nE << "\n\n";
 	//printNodesCoords();
 	//printElementsNodes();
 	//printBCNodes();

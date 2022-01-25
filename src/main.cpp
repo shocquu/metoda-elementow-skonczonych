@@ -1,24 +1,31 @@
 #include "utils/functions.h"
 #include "grid/grid.h"
 
-#define LAB_NO 10
+#define MODE 2
 
-int main() {	
-	Element4_2D el4(2);
+int main() {
+	SimulationData dataset;
+	dataset.specificHeat = 700;
+	dataset.ambientTemp = 1200;
+	dataset.initialTemp = 100;
+	dataset.conductivity = 25;
+	dataset.density = 7800;
+	dataset.alpha = 300;
+	dataset.simStepTime = 50;
+	dataset.simTime = 500;
 
-	#if LAB_NO == 11
-		Grid grid(el4, "data/MES_31_31_v2.txt");
-		grid.plotHeatMap(el4);
+	#if MODE == 3
+		Grid("data/MES_31_31_v2.txt").heatMap();
 
-	#elif LAB_NO == 10
-		Grid grid;
-		grid.launch(el4, "data/Test2_4_4_MixGrid.txt");
+	#elif MODE == 2
+		Grid("data/Test4_31_31_trapez.txt").start(true);
 
-	#elif LAB_NO >= 6 && LAB_NO < 10
+	#elif MODE == 1
 		Grid grid(0.1, 0.1, 4, 4);
-		grid.launch(el4, 500, 50, 25, 300, 7800, 700, 100, 1200);
+		grid.launch(dataset);
 
 	#endif
+
 	system("pause");
 	return 0;
 }
