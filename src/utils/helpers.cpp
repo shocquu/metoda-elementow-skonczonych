@@ -9,7 +9,7 @@ pair<double, double> minMax(double* array, const int N) {
 		if (array[i] > max) max = array[i];
 	}
 
-	return make_pair(min, max);
+	return { min, max };
 }
 
 void printBanner() {

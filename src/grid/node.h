@@ -1,4 +1,5 @@
 #pragma once
+
 /**
  * Wêze³ bêd¹cy czêœci¹ elementu.
  *
@@ -9,4 +10,5 @@ struct Node {
 	int id = -1;
 	short int bc = 0;
 	double x = 0, y = 0;
+	std::vector<double> tempAtTime;
 };

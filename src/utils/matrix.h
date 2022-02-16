@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 #include <iomanip>
+#include <array>
+#include <vector>
 
 #define WIDTH 2
 #define WIDTHx4 16
@@ -24,3 +26,6 @@ void printMatrix(double M[2 * WIDTH]);
 void printMatrix(double* matrix, const int N = WIDTHx4);
 void printMatrix(double** matrix, const int M = WIDTHx4, const int N = HEIGHTx4);
 void printMatrix4x4(double** matrix);
+
+void printMatrix(std::array<double, 4> matrix, const int N);
+void printMatrix(std::vector<std::array<double, 4>> matrix);

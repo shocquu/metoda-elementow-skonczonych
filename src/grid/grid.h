@@ -4,7 +4,12 @@
 #include <fstream>
 #include <sstream>
 #include <regex>
+#include <tuple>
+#include <array>
+#include <vector>
 
+#include "../../include/matplotlib-cpp/matplotlibcpp.h"
+#include "../../include/meshgrid.hpp"
 #include "../utils/gauss.h"
 #include "../utils/matrix.h"
 #include "../utils/helpers.h"
@@ -12,39 +17,46 @@
 #include "element.h"
 #include "node.h"
 
-static double alpha = 300;
-static double simTime = 100;
-static double simStepTime = 50;
-static double conductivity = 25;
-static double initialTemp = 100;
-static double ambientTemp = 1200;
-static double specificHeat = 700;
-static double density = 7800;
+struct SimulationData {
+	double alpha = 300;
+	double simTime = 20;
+	double simStepTime = 50;
+	double conductivity = 25;
+	double density = 7800;
+	double specificHeat = 700;
+	double initialTemp = 100;
+	double ambientTemp = 1200;
+};
 
 struct Grid {
+	SimulationData data;
+	Element4_2D el4;
 	Element* elements;
 	Node* nodes;
 	double width, height;
 	int nW, nH, nN, nE, p;
-
 	double** aggrH, ** aggrC;
 	double* aggrP;
 
 	Grid();
+	Grid(std::string path);
 	Grid(double height, double width, int nH, int nW);
 	~Grid();
 		
-	void launch(Element4_2D &el4, std::string path, bool showDetails = false);
-	void launch(Element4_2D &el4, double simTime, double simStepTime, double conductivity, double alpha, double density, double specificHeat, double initialTemp, double ambientTemp, bool showDetails = false);
-	void readFromFile(std::string path, double& simulationTime, double& simulationStepTime, double& conductivity, double& alpha, double& density, double& specificHeat, double& initialTemp, double& ambientTemp);
-	void collectData(Element4_2D el4);
-	void aggregate(Element &currEl);
-	void calcHbc(Element4_2D &el4, Element &currEl, double alpha = alpha, double ambientTemp = ambientTemp);
-	void calcH(Element4_2D &el4, Element &currEl, double k = conductivity);
-	void calcC(Element4_2D &el4, Element &currEl, double c = specificHeat, double ro = density);
-	void calcJ(Element4_2D &el4, Element &currEl);
-	void jacobian(Element4_2D &el4, Element &currEl);
-	double distance(double x1, double y1, double x2, double y2);
+	Grid& heatMap();
+	Grid& start(bool saveToFile = false);
+	Grid& start(SimulationData data, bool saveToFile = false);
+	void plotHeatMap();
+	void launch(std::string path, bool saveToFile = false);
+	void launch(SimulationData data, bool saveToFile = false);
+	void readFromFile(std::string path);
+	void calcTemperature(bool showMinMax = false, bool saveToFile = false);
+	void aggregate();
+	void calcHbc(Element &currEl);
+	void calcH(Element &currEl);
+	void calcC(Element &currEl);
+	void calcJ(Element &currEl, int pc);
+	void jacobian(Element &currEl);
 	void initMatrices();
 	void setNodesCoords();
 	void printNodesCoords();
@@ -52,4 +64,7 @@ struct Grid {
 	void printElementsNodes();
 	void setNodesBC();
 	void printBCNodes();
+	void printSimulationData();
+	double distance(double x1, double y1, double x2, double y2);
 };
+

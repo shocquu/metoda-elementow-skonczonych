@@ -1,7 +1,5 @@
+
 #include "matrix.h"
-
-using namespace std;
-
 double* multiply(double** A, double* B, const int N) {
 	double *temp = new double[N];
 
@@ -108,7 +106,7 @@ double detOfMatrix(double matrix[WIDTH][HEIGHT]) {
  *
  */
 void inverseMatrix(double invM[WIDTH][HEIGHT], double M[WIDTH][HEIGHT], double detM) {
-	double invDetM = 1 / detM;
+	double invDetM = detM != 0 ? 1 / detM : 0;
 	invM[0][0] = M[1][1] * invDetM;
 	invM[0][1] = -M[0][1] * invDetM;
 	invM[1][0] = -M[1][0] * invDetM;
@@ -184,10 +182,8 @@ void printMatrix(double M[2 * WIDTH]) {
  * @param M, N - wymiary macierzy
  */
 void printMatrix(double **matrix, const int M, const int N) {
-	for (size_t i = 0; i < M; i++)
-	{
-		for (size_t j = 0; j < N; j++)
-		{
+	for (size_t i = 0; i < M; i++) {
+		for (size_t j = 0; j < N; j++) {
 			std::cout << std::setw(10) << matrix[i][j] << "  ";
 		}
 		std::cout << "\n";
@@ -227,6 +223,24 @@ void printMatrix4x4(double** matrix) {
 		}
 		std::cout << "|\n";
 		std::cout << "+---+-------------+-------------+-------------+-------------+\n";
+	}
+	std::cout << "\n";
+}
+
+
+void printMatrix(std::array<double, 4> matrix) {
+	for (size_t i = 0; i < 4; i++) {
+		std::cout << std::setw(10) << matrix[i] << "  ";
+	}
+	std::cout << "\n";
+}
+
+void printMatrix(std::vector<std::array<double, 4>> matrix) {
+	for (size_t i = 0; i < 4; i++) {
+		for (size_t j = 0; j < 4; j++) {
+			std::cout << std::setw(10) << matrix[i][j] << "  ";
+		}
+		std::cout << "\n";
 	}
 	std::cout << "\n";
 }
