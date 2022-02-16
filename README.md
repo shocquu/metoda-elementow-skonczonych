@@ -4,11 +4,14 @@
 
 Zbiór algorytmów i metod umożliwiających obliczenie temperatury węzłów w elemencie skończonym. Program korzysta z dwupunktowego schematu całkowania do numerycznego wyznaczenia wartości.
 
+
+
 ## Getting Started
 
 ### Zależności
 
 Do graficznej reprezentacji danych wymagana jest biblioteka [Matplotlib for C++](https://matplotlib-cpp.readthedocs.io/en/latest/)
+
 
 
 ### Uruchomienie
@@ -27,6 +30,7 @@ Ponadto możliwe jest wyświetlenie rozkładu ciepła stosując metodę plotHeat
 ```cpp
 Grid("data/MES_31_31_v2.txt").heatMap();
 ```
+
 
 
 ### Podgląd
