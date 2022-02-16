@@ -10,7 +10,7 @@
 struct Side { double* pc1, * pc2; };
 
 struct Element4_2D {
-	double dNdX[4][4] = { 0 }, dNdY[4][4] = { 0 }, Npc1[4][4] = { 0 }, Npc2[4][4] = { 0 };
+	double Npc1[4][4] = { 0 }, Npc2[4][4] = { 0 };
 	std::vector<std::array<double, 4>> nMatrix, dNdKsiMatrix, dNdEtaMatrix;
 	std::vector<double> ksi, eta, w;
 	double detJ;

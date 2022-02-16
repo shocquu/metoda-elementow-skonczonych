@@ -19,7 +19,7 @@
 
 struct SimulationData {
 	double alpha = 300;
-	double simTime = 500;
+	double simTime = 20;
 	double simStepTime = 50;
 	double conductivity = 25;
 	double density = 7800;
