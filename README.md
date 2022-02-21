@@ -1,6 +1,6 @@
 # Metoda Elementów Skończonych - rozkład ciepła
 
-## Description
+## Opis
 
 Zbiór algorytmów i metod umożliwiających obliczenie temperatury węzłów w elemencie skończonym. Program korzysta z dwupunktowego schematu całkowania do numerycznego wyznaczenia wartości.
 
